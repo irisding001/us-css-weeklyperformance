@@ -116,6 +116,10 @@ Collect from user (screenshots) and build a config JSON:
 }
 ```
 
+⚠️ **咨询PC（online_pc / phone_pc / email_pc）字段已从 USCM API 移除。** run.js 生成的 TEMP HTML 中个人咨询PC 全为 0，这是正常的，不是 USCM_COOKIE 过期。每周必须从用户提供的截图手动统计后填入 `weeklyConsultPC` / `monthlyConsultPC`，否则所有人咨询PC 为 0 且 周度总PC = 转化PC。
+
+⚠️ **转化PC（convPC）** 由 USCM API 正常返回，run.js 读取正确。验证方法：TEMP HTML Individual Summary col3（转化PC）大部分人非零即可。
+
 Notes:
 - `jeanliew` / `wilsonwong` often have 0 weekly consult PC
 - `monthlyConsultPC`: month-to-date per agent (consult only)
