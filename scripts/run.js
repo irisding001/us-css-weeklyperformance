@@ -79,6 +79,7 @@ const prevEmailTickets= getArg('--prev-email-tickets');
 const prevEmailCsat   = getArg('--prev-email-csat');
 const prevObPc        = getArg('--prev-ob-pc');
 const prevWeeklyPc    = getArg('--prev-weekly-pc');
+const PC_KPI          = parseInt(getArg('--pc-kpi') || '80', 10);
 
 // ─────────────────────────────────────────────────────────────────
 // ENV / AUTH
@@ -1974,7 +1975,7 @@ function generateHTML(data, weekStart, weekEnd) {
       + `<td style="text-align:center;color:${d.monthlyFatal > 0 ? '#dc2626' : 'inherit'};font-weight:${d.monthlyFatal > 0 ? '700' : '400'}">${d.monthlyFatal}</td>`
       + `<td style="text-align:center">${d.monthlyNonfatal}</td>`
       + `<td${rc(i,'monthlyPC')}>${esc(String(d.monthlyPC))}</td>`
-      + (() => { const pct = d.monthlyPC > 0 ? Math.round(d.monthlyPC / 100 * 100) : null; return pct != null ? `<td style="font-weight:700;color:${pct >= 100 ? '#15803d' : '#dc2626'}">${pct}%</td>` : '<td>-</td>'; })()
+      + (() => { const pct = d.monthlyPC > 0 ? Math.round(d.monthlyPC / PC_KPI * 100) : null; return pct != null ? `<td style="font-weight:700;color:${pct >= 100 ? '#15803d' : '#dc2626'}">${pct}%</td>` : '<td>-</td>'; })()
       + '</tr>';
   });
 

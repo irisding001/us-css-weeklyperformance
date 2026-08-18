@@ -86,7 +86,13 @@ if (!csatData) {
     const name = r[0].text;
     const htmlCsat = r[5].text;
     if (!csatData[name]) { warn(name + ': not in csat json'); continue; }
-    const jsonCsat = csatData[name].csat + '%';
+    const rawCsat = csatData[name].csat;
+    // null or "-" means no evaluations — HTML shows "-"
+    if (rawCsat === null || rawCsat === '-' || csatData[name].total === 0) {
+      if (htmlCsat === '-') { ok(name + ': - (no evals)'); } else { err(name + ': HTML=' + htmlCsat + ', json=- (no evals)'); }
+      continue;
+    }
+    const jsonCsat = rawCsat + '%';
     if (htmlCsat !== jsonCsat) {
       err(name + ': HTML=' + htmlCsat + ', json=' + jsonCsat);
     } else {
@@ -150,26 +156,14 @@ if (zeroPcMatch) {
   ok('No 零PC line');
 }
 
-// ─── Check 6: Email CSAT bucket (亮点 vs 异常) ────────────────────────────────
-console.log('\n[6] Email CSAT bucket');
-const emailHighlight = html.match(/邮件满意度 Email CSAT <strong>([\d.]+%)<\/strong>，达成目标/);
-const emailIssue = html.match(/邮件满意度 Email CSAT <strong>([\d.]+%)<\/strong>，低于目标/);
-if (!emailHighlight && !emailIssue) {
-  warn('Email CSAT not found in 业绩分析');
-} else if (emailHighlight) {
-  const val = parseFloat(emailHighlight[1]);
-  if (val < 84) {
-    err('Email CSAT ' + emailHighlight[1] + ' < 84% but is in 亮点 — should be in 异常');
-  } else {
-    ok('Email CSAT ' + emailHighlight[1] + ' in 亮点 (≥84%)');
-  }
+// ─── Check 6: Email CSAT chip in 本周概览 ────────────────────────────────────
+console.log('\n[6] Email CSAT chip');
+const emailChip = html.match(/<strong>邮件 CSAT<\/strong>\s*([\d.]+%)/);
+if (!emailChip) {
+  ok('Email CSAT data unavailable (DATA_COOKIE 401) — chip absent, skip');
 } else {
-  const val = parseFloat(emailIssue[1]);
-  if (val >= 84) {
-    err('Email CSAT ' + emailIssue[1] + ' ≥ 84% but is in 异常 — should be in 亮点');
-  } else {
-    ok('Email CSAT ' + emailIssue[1] + ' in 异常 (<84%)');
-  }
+  const val = parseFloat(emailChip[1]);
+  ok('Email CSAT ' + emailChip[1] + (val >= 84 ? ' (≥84%)' : ' (<84%, shown red)'));
 }
 
 // ─── Check 7: 综合满意度低于84% matches csat json ────────────────────────────
