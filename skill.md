@@ -138,6 +138,25 @@ Omit `--csat` to remove the CSAT column entirely. Output filename uses `--week-s
 
 ---
 
+## Step 4.05: Patch Section 二 rank highlighting (patch_section2_ranks.js)
+
+Section 二（渠道个人明细）合并表默认无 top/bot 高亮。此脚本对 8 列加 rank-top（绿）/rank-bot（红）：
+- LC: 30s 接通 / CSAT / FCR
+- Phone: 20s 接通 / CSAT / FCR
+- Email: SLA / CSAT
+
+**工单量 / 呼入量不加高亮**（按 Iris 指示）。
+`-` 空值不参与排名。同列同值并列标同色。
+
+```bash
+node "C:/Users/irisding/us-css-weeklyperformance/scripts/patch_section2_ranks.js" \
+  "C:/Users/irisding/us-css-weeklyreport/weekly_report_YYYY-MM-DD_MMDD.html"
+```
+
+⚠️ **运行时机：** 在 postprocess.js 之后、patch_ob_pc.js 之前。脚本只改 Section 二第一张表（渠道个人明细），不影响其他表。
+
+---
+
 ## Step 4.1: Patch outbound individual table (patch_ob_pc.js)
 
 run.js 输出的外呼个人表只有 5 列（Agent|分配Leads|跟进量|有效跟进|周PC_USCM），且 周PC 用 USCM 全量值而非 cohort 值。此步骤完全重建该表为正确 9 列，并从 Guandata 抓取 cohort PC。

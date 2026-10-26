@@ -2114,6 +2114,52 @@ function generateHTML(data, weekStart, weekEnd) {
   );
 
   // ── Section II combined 渠道个人明细 table ─────────────────────
+  // Per-column rank (top=max → green, bot=min → red); '-' excluded
+  const sec2Cols = ['lc30s','lcCsat','lcFcr','ph20s','phCsat','phFcr','emSla','emCsat'];
+  const sec2Nums = {
+    lc30s:  [], lcCsat: [], lcFcr:  [],
+    ph20s:  [], phCsat: [], phFcr:  [],
+    emSla:  [], emCsat: [],
+  };
+  for (const name of TEAM_ORDER) {
+    const lca = lcMap[name]    || {};
+    const ph  = phoneMap[name] || {};
+    const em  = emailMap[name] || {};
+    const esa = emailSatMap[name] || {};
+    if (toInt(lca.tickets) > 0) {
+      sec2Nums.lc30s.push({ name, v: num(lca.thirtySecRate) });
+      sec2Nums.lcCsat.push({ name, v: num(lca.satisfaction) });
+      sec2Nums.lcFcr.push({ name, v: num(lca.fcr) });
+    }
+    if (toInt(ph.inbound) > 0) {
+      sec2Nums.ph20s.push({ name, v: num(ph.ans20s) });
+      sec2Nums.phCsat.push({ name, v: num(ph.satisfaction) });
+      sec2Nums.phFcr.push({ name, v: num(ph.fcr) });
+    }
+    if (toInt(em.tickets) > 0) {
+      sec2Nums.emSla.push({ name, v: num(em.slaRate) });
+      sec2Nums.emCsat.push({ name, v: num(esa.satisfaction) });
+    }
+  }
+  function colRankMap(arr) {
+    const valid = arr.filter(x => x.v != null && !isNaN(x.v));
+    if (valid.length < 2) return { tops: new Set(), bots: new Set() };
+    const max = Math.max(...valid.map(x => x.v));
+    const min = Math.min(...valid.map(x => x.v));
+    return {
+      tops: new Set(valid.filter(x => x.v === max).map(x => x.name)),
+      bots: new Set(valid.filter(x => x.v === min).map(x => x.name)),
+    };
+  }
+  const sec2Rank = {};
+  for (const k of sec2Cols) sec2Rank[k] = colRankMap(sec2Nums[k]);
+  function rankCell(v, key) {
+    if (!v || v === '-') return '<td class="empty">-</td>';
+    const inner = (typeof v === 'object' && 'html' in v) ? v.html : esc(String(v));
+    // name not available here; rank applied at row level below
+    return `<td data-rank-key="${key}">${inner}</td>`;
+  }
+
   const channelIndRows = TEAM_ORDER.map(name => {
     const lca = lcMap[name]    || {};
     const ph  = phoneMap[name] || {};
@@ -2127,19 +2173,25 @@ function generateHTML(data, weekStart, weekEnd) {
       if (typeof v === 'object' && 'html' in v) return `<td>${v.html}</td>`;
       return `<td>${esc(String(v))}</td>`;
     };
+    const rcell = (v, key) => {
+      if (!v || v === '-') return '<td class="empty">-</td>';
+      const inner = (typeof v === 'object' && 'html' in v) ? v.html : esc(String(v));
+      const cls = sec2Rank[key].tops.has(name) ? 'rank-top' : sec2Rank[key].bots.has(name) ? 'rank-bot' : '';
+      return cls ? `<td class="${cls}">${inner}</td>` : `<td>${inner}</td>`;
+    };
     return '<tr>'
       + `<td>${esc(name)}</td>`
       + cell(hasLC ? lca.tickets               : '-')
-      + cell(hasLC ? kpiCell(lca.thirtySecRate, 90) : '-')
-      + cell(hasLC ? kpiCell(lca.satisfaction,  84) : '-')
-      + cell(hasLC ? kpiCell(lca.fcr,           95) : '-')
+      + rcell(hasLC ? kpiCell(lca.thirtySecRate, 90) : '-', 'lc30s')
+      + rcell(hasLC ? kpiCell(lca.satisfaction,  84) : '-', 'lcCsat')
+      + rcell(hasLC ? kpiCell(lca.fcr,           95) : '-', 'lcFcr')
       + cell(hasPh ? ph.inbound                : '-')
-      + cell(hasPh ? kpiCell(ph.ans20s,        95) : '-')
-      + cell(hasPh ? kpiCell(ph.satisfaction,  84) : '-')
-      + cell(hasPh ? kpiCell(ph.fcr,           95) : '-')
+      + rcell(hasPh ? kpiCell(ph.ans20s,        95) : '-', 'ph20s')
+      + rcell(hasPh ? kpiCell(ph.satisfaction,  84) : '-', 'phCsat')
+      + rcell(hasPh ? kpiCell(ph.fcr,           95) : '-', 'phFcr')
       + cell(hasEm ? em.tickets                : '-')
-      + cell(hasEm ? kpiCell(em.slaRate,       90) : '-')
-      + cell(hasEm ? kpiCell(esa.satisfaction, 84) : '-')
+      + rcell(hasEm ? kpiCell(em.slaRate,       90) : '-', 'emSla')
+      + rcell(hasEm ? kpiCell(esa.satisfaction, 84) : '-', 'emCsat')
       + '</tr>';
   });
   const channelIndTable = `<div style="overflow-x:auto;margin-bottom:4px">
