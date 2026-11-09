@@ -5,21 +5,202 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>US CSS Weekly Performance Reports</title>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 600px; margin: 60px auto; padding: 0 20px; color: #1a1a2e; }
-    h1 { font-size: 22px; color: #1456F0; margin-bottom: 8px; }
-    p.sub { font-size: 13px; color: #6b7280; margin-bottom: 28px; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; color: #1a1a2e; }
+    h1 { font-size: 24px; color: #1456F0; margin-bottom: 4px; }
+    p.sub { font-size: 13px; color: #6b7280; margin-bottom: 24px; }
+    .overview, .board { background: #fff; border-radius: 10px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 4px rgba(0,0,0,.05); }
     ul { list-style: none; padding: 0; }
     li { border-bottom: 1px solid #e5e7eb; }
-    li a { display: block; padding: 12px 4px; font-size: 15px; color: #1456F0; text-decoration: none; }
+    li a { display: block; padding: 10px 8px; font-size: 14px; color: #1456F0; text-decoration: none; }
     li a:hover { background: #f0f4ff; border-radius: 4px; }
     li:first-child a { font-weight: 700; }
+    h2.list-title { font-size: 15px; color: #1456F0; margin: 12px 0 8px; padding-bottom: 6px; border-bottom: 2px solid #1456F0; }
   </style>
 </head>
 <body>
   <h1>US CSS Weekly Performance Reports</h1>
-  <p class="sub">US Conversion CS Team — Performance Reports (Mon ~ Sun)</p>
+  <p class="sub">US Conversion CS Team — Performance Reports (Mon ~ Sun) &nbsp;·&nbsp; 最新 11-02 ~ 11-08</p>
+
+  <div class="overview">
+    <div class="kpi-compare" style="background:#fef2f2;border:1.5px solid #fecaca;border-radius:8px;padding:16px 20px;margin-bottom:16px">
+      <div style="font-size:13px;font-weight:700;color:#6b7280;letter-spacing:.05em;margin-bottom:8px">本周 KPI 进度 vs 时间进度 / This Week KPI vs Time Progress</div>
+      <div style="display:flex;gap:24px;align-items:center;flex-wrap:wrap">
+        <div>
+          <div style="font-size:11px;color:#6b7280">月时间进度 Time Progress</div>
+          <div style="font-size:22px;font-weight:700;color:#1d4ed8">26.7%</div>
+        </div>
+        <div style="font-size:22px;color:#9ca3af">vs</div>
+        <div>
+          <div style="font-size:11px;color:#6b7280">KPI 进度 KPI Progress</div>
+          <div style="font-size:22px;font-weight:700;color:#dc2626">15.5%</div>
+        </div>
+        <div style="margin-left:auto;padding:6px 12px;border-radius:4px;background:#dc2626;color:#fff;font-weight:700;font-size:13px">落后 11.2pp</div>
+      </div>
+    </div>
+    <div class="metrics-row" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">
+      <div class="metric" style="background:#f0f4ff;border:1px solid #c7d6f7;border-radius:6px;padding:10px 14px;flex:1;min-width:120px">
+        <div style="font-size:11px;color:#6b7280">周咨询PC Consult PC</div>
+        <div style="font-size:18px;font-weight:700;color:#1456F0">50 单</div>
+      </div>
+      <div class="metric" style="background:#f0f4ff;border:1px solid #c7d6f7;border-radius:6px;padding:10px 14px;flex:1;min-width:120px">
+        <div style="font-size:11px;color:#6b7280">外呼转化PC OB Conv PC</div>
+        <div style="font-size:18px;font-weight:700;color:#1456F0">71 单</div>
+      </div>
+      <div class="metric" style="background:#f0f4ff;border:1px solid #c7d6f7;border-radius:6px;padding:10px 14px;flex:1;min-width:120px">
+        <div style="font-size:11px;color:#6b7280">月度PC Monthly PC</div>
+        <div style="font-size:18px;font-weight:700;color:#1456F0">124 单</div>
+      </div>
+      <div class="metric" style="background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:10px 14px;flex:1;min-width:120px">
+        <div style="font-size:11px;color:#6b7280">综合满意度 Overall CSAT</div>
+        <div style="font-size:18px;font-weight:700;color:#dc2626">79.0%</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="board" style="margin-bottom:24px">
+    <h2 style="font-size:16px;color:#1456F0;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid #1456F0">🏆 KPI 排行榜 / KPI Leaderboard (月度KPI达成%)</h2>
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead>
+        <tr style="background:#eef2ff;color:#1456F0">
+          <th style="text-align:left;padding:8px 10px">客服 Agent</th>
+          <th style="padding:8px 10px">月度PC</th>
+          <th style="padding:8px 10px">KPI达成%</th>
+          <th style="padding:8px 10px">状态 Status</th>
+        </tr>
+      </thead>
+      <tbody>
+      <tr style="background:#f0fdf4">
+        <td style="font-weight:700;color:#1456F0">whitneylee</td>
+        <td>31</td>
+        <td style="font-weight:700;color:#15803d">31%</td>
+        <td style="color:#15803d;font-size:12px">✓ 达标</td>
+      </tr>
+      <tr style="background:#fef2f2">
+        <td style="font-weight:700;color:#1456F0">muhamadfaisal</td>
+        <td>19</td>
+        <td style="font-weight:700;color:#dc2626">19%</td>
+        <td style="color:#dc2626;font-size:12px">⚠ 需追赶</td>
+      </tr>
+      <tr style="background:#fef2f2">
+        <td style="font-weight:700;color:#1456F0">jeanliew</td>
+        <td>17</td>
+        <td style="font-weight:700;color:#dc2626">17%</td>
+        <td style="color:#dc2626;font-size:12px">⚠ 需追赶</td>
+      </tr>
+      <tr style="background:#fef2f2">
+        <td style="font-weight:700;color:#1456F0">alvinsim</td>
+        <td>16</td>
+        <td style="font-weight:700;color:#dc2626">16%</td>
+        <td style="color:#dc2626;font-size:12px">⚠ 需追赶</td>
+      </tr>
+      <tr style="background:#fef2f2">
+        <td style="font-weight:700;color:#1456F0">wilsonwong</td>
+        <td>12</td>
+        <td style="font-weight:700;color:#dc2626">12%</td>
+        <td style="color:#dc2626;font-size:12px">⚠ 需追赶</td>
+      </tr>
+      <tr style="background:#fef2f2">
+        <td style="font-weight:700;color:#1456F0">azamuddin</td>
+        <td>9</td>
+        <td style="font-weight:700;color:#dc2626">9%</td>
+        <td style="color:#dc2626;font-size:12px">⚠ 需追赶</td>
+      </tr>
+      <tr style="background:#fef2f2">
+        <td style="font-weight:700;color:#1456F0">terrychen</td>
+        <td>9</td>
+        <td style="font-weight:700;color:#dc2626">9%</td>
+        <td style="color:#dc2626;font-size:12px">⚠ 需追赶</td>
+      </tr>
+      <tr style="background:#fef2f2">
+        <td style="font-weight:700;color:#1456F0">zaydentan</td>
+        <td>7</td>
+        <td style="font-weight:700;color:#dc2626">7%</td>
+        <td style="color:#dc2626;font-size:12px">⚠ 需追赶</td>
+      </tr>
+      <tr style="background:#fef2f2">
+        <td style="font-weight:700;color:#1456F0">jacelynlim</td>
+        <td>2</td>
+        <td style="font-weight:700;color:#dc2626">2%</td>
+        <td style="color:#dc2626;font-size:12px">⚠ 需追赶</td>
+      </tr>
+      </tbody>
+    </table>
+    <p style="font-size:11px;color:#6b7280;margin-top:6px">时间进度基准 / Time progress baseline: <strong>26.7%</strong> &nbsp;·&nbsp; 达标线 / Pass line: KPI% ≥ time progress</p>
+  </div>
+
+  <div class="board" style="margin-bottom:24px">
+    <h2 style="font-size:16px;color:#1456F0;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid #1456F0">📞 外呼活跃榜 / Outbound Activity (本周)</h2>
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead>
+        <tr style="background:#eef2ff;color:#1456F0">
+          <th style="text-align:left;padding:8px 10px">客服 Agent</th>
+          <th style="padding:8px 10px">跟进量 Follow-up</th>
+          <th style="padding:8px 10px">有效跟进 Eff. Follow</th>
+          <th style="padding:8px 10px">周PC Weekly PC</th>
+        </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td style="font-weight:700;color:#1456F0">whitneylee</td>
+        <td>473▲ +236</td>
+        <td>115▲ +67</td>
+        <td style="font-weight:700;color:#1456f0">21▲ +10</td>
+      </tr>
+      <tr>
+        <td style="font-weight:700;color:#1456F0">muhamadfaisal</td>
+        <td>430▲ +141</td>
+        <td>70▲ +22</td>
+        <td style="font-weight:700;color:#1456f0">14▲ +6</td>
+      </tr>
+      <tr>
+        <td style="font-weight:700;color:#1456F0">jeanliew</td>
+        <td>363▲ +100</td>
+        <td>110▲ +47</td>
+        <td style="font-weight:700;color:#1456f0">14▲ +4</td>
+      </tr>
+      <tr>
+        <td style="font-weight:700;color:#1456F0">alvinsim</td>
+        <td>575▲ +341</td>
+        <td>93▲ +51</td>
+        <td style="font-weight:700;color:#1456f0">7▼ -1</td>
+      </tr>
+      <tr>
+        <td style="font-weight:700;color:#1456F0">azamuddin</td>
+        <td>397▲ +102</td>
+        <td>81▲ +31</td>
+        <td style="font-weight:700;color:#1456f0">6▼ -2</td>
+      </tr>
+      <tr>
+        <td style="font-weight:700;color:#1456F0">wilsonwong</td>
+        <td>299▲ +41</td>
+        <td>62▲ +17</td>
+        <td style="font-weight:700;color:#1456f0">4▼ -3</td>
+      </tr>
+      <tr>
+        <td style="font-weight:700;color:#1456F0">terrychen</td>
+        <td>197▲ +128</td>
+        <td>44▲ +28</td>
+        <td style="font-weight:700;color:#1456f0">4▼ -1</td>
+      </tr>
+      <tr>
+        <td style="font-weight:700;color:#1456F0">jacelynlim</td>
+        <td>40▼ -5</td>
+        <td>8➡️ 0</td>
+        <td style="font-weight:700;color:#1456f0">1▼ -3</td>
+      </tr>
+      <tr>
+        <td style="font-weight:700;color:#1456F0">zaydentan</td>
+        <td>1—</td>
+        <td>0—</td>
+        <td style="font-weight:700;color:#1456f0">0➡️ 0</td>
+      </tr>
+      </tbody>
+    </table>
+    <p style="font-size:11px;color:#6b7280;margin-top:6px">详细 WoW 变化见报告外呼个人表 / See report for WoW details</p>
+  </div>
+  <h2 class="list-title">历史报告 / Historical Reports</h2>
   <ul>
-    <li><a href="weekly_report_2026-11-02_1108.html">11-02 ~ 11-08</a></li>
+    <li style="background:#f0f4ff"><a href="weekly_report_2026-11-02_1108.html">11-02 ~ 11-08 (最新 Latest)</a></li>
     <li><a href="weekly_report_2026-10-26_1101.html">10-26 ~ 11-01</a></li>
     <li><a href="weekly_report_2026-10-19_1025.html">10-19 ~ 10-25</a></li>
     <li><a href="weekly_report_2026-10-16_1022.html">10-16 ~ 10-22</a></li>
