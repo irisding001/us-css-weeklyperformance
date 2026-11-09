@@ -27,13 +27,17 @@ if (csatArg) {
 
 let html = fs.readFileSync(inputPath, 'utf8');
 
-// ── 1. Remove sections 4 (Key Work) and 5 (Next Week Plans) ─────────────────
-// 3 </div> total: editable-hint close, editable-area close, outer section close
+// ── 1. Remove sections 3 (Satisfaction Analysis), 4 (Key Work), 5 (Next Week Plans) ───
+html = html.replace(/<div class="section" id="三">[\s\S]*?(?=<div class="section" id="|<\/body>)/, '');
 html = html.replace(/<div class="section" id="四">[\s\S]*?<\/div>[\s\S]*?<\/div>[\s\S]*?<\/div>/, '');
 html = html.replace(/<div class="section" id="五">[\s\S]*?<\/div>[\s\S]*?<\/div>[\s\S]*?<\/div>/, '');
 
-// Remove 业绩分析 block (h3 + content div) — keep only 业绩小结
-html = html.replace(/<h3[^>]*>业绩分析[^<]*<\/h3>[\s\S]*?(?=\s*<div style="padding:14px 18px;background:#f8faff)/, '');
+// Remove 业绩分析 block (h3 + its wrapping div) — keep channel breakdown + outbound tables
+// Anchored to next </div> after the h3's parent div closes (non-greedy, single div depth)
+html = html.replace(/<h3[^>]*>业绩分析[^<]*<\/h3>\s*<div[^>]*>[\s\S]*?<\/div>\s*<\/div>/, '');
+
+// Remove 满意度小结 block (h3 + all content until closing parent div)
+html = html.replace(/<h3[^>]*>满意度小结<\/h3>[\s\S]*?<\/div>\s*\n<\/div>/, '');
 
 // ── 2. Sort individual channel tables by first numeric column descending ─────
 function sortTableByFirstNumber(tableHtml) {
@@ -60,15 +64,9 @@ html = html.replace(/<table[\s\S]*?<\/table>/g, table => {
   return table;
 });
 
-// Remove dot-red indicators from Section 二 per-agent tables (keep colored text only)
-const _sec2Start = html.indexOf('id="二"');
-if (_sec2Start !== -1) {
-  const _sec2Next = html.indexOf('<div class="section"', _sec2Start + 10);
-  const _sec2End  = _sec2Next !== -1 ? _sec2Next : html.length;
-  html = html.slice(0, _sec2Start)
-    + html.slice(_sec2Start, _sec2End).replace(/<span class="dot dot-red"[^>]*><\/span>/g, '')
-    + html.slice(_sec2End);
-}
+// Remove all dot-red indicators (position:relative wrapper + inner dot span)
+html = html.replace(/<span style="position:relative;display:inline-block">([\s\S]*?)<span class="dot dot-red"[^>]*><\/span><\/span>/g, '$1');
+html = html.replace(/<span class="dot dot-red"[^>]*><\/span>/g, '');
 
 // ── 3. Bilingual performance analysis ────────────────────────────────────────
 
@@ -163,6 +161,83 @@ if (summaryStart !== -1) {
   html = html.slice(0, tableStart) + summaryTable + html.slice(tableEnd);
 }
 
+// ── 4b. CSAT coloring in Individual Summary: <84% red, top1 green, remove dots ─
+{
+  const summaryStart = html.indexOf('Individual Summary');
+  if (summaryStart !== -1) {
+    const zoneIdx  = html.indexOf('zone-monthly', summaryStart);
+    const tblStart = html.lastIndexOf('<table', zoneIdx);
+    const tblEnd   = html.indexOf('</table>', zoneIdx) + '</table>'.length;
+    let tbl = html.slice(tblStart, tblEnd);
+
+    const stripTags = s => s.replace(/<[^>]+>/g, '').replace('%','').trim();
+    const rows = [...tbl.matchAll(/<tr[^>]*>[\s\S]*?<\/tr>/g)];
+
+    // Collect all agent CSAT values
+    const csatWVals = [], csatMVals = [];
+    rows.forEach(m => {
+      const cells = [...m[0].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map(c => c[1]);
+      if (cells.length < 9) return;
+      const name = cells[0].replace(/<[^>]+>/g,'').trim();
+      if (!name || name === '合计' || name === 'Total') return;
+      const vW = parseFloat(stripTags(cells[5]));
+      const vM = parseFloat(stripTags(cells[8]));
+      if (!isNaN(vW)) csatWVals.push(vW);
+      if (!isNaN(vM)) csatMVals.push(vM);
+    });
+    const maxW = csatWVals.length ? Math.max(...csatWVals) : null;
+    const maxM = csatMVals.length ? Math.max(...csatMVals) : null;
+
+    const csatTd = (rawInner, maxVal) => {
+      const v = parseFloat(stripTags(rawInner));
+      if (isNaN(v)) return `<td>${rawInner}</td>`;
+      const display = v.toFixed(1) + '%';
+      if (maxVal !== null && v === maxVal)
+        return `<td><span style="color:#15803d;font-weight:600">${display}</span></td>`;
+      if (v < 84)
+        return `<td><span style="color:#ef4444;font-weight:600">${display}</span></td>`;
+      return `<td>${display}</td>`;
+    };
+
+    rows.forEach(m => {
+      const rowHtml = m[0];
+      const cells = [...rowHtml.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map(c => c[0]);
+      if (cells.length < 9) return;
+      const name = cells[0].replace(/<[^>]+>/g,'').trim();
+      if (!name || name === '合计' || name === 'Total') return;
+      const inner5 = cells[5].replace(/^<td[^>]*>|<\/td>$/g,'');
+      const inner8 = cells[8].replace(/^<td[^>]*>|<\/td>$/g,'');
+      const newCells = [...cells];
+      newCells[5] = csatTd(inner5, maxW);
+      newCells[8] = csatTd(inner8, maxM);
+      const newRow = rowHtml.replace(/<td[^>]*>[\s\S]*?<\/td>/g, () => newCells.shift());
+      tbl = tbl.replace(rowHtml, newRow);
+    });
+
+    html = html.slice(0, tblStart) + tbl + html.slice(tblEnd);
+  }
+}
+
+// ── 4c. Remove satisfaction distribution rows from outbound table ─────────────
+// run.js appends 在线/电话/邮件/超赞/满意/一般/不满意/糟糕 sub-section to the outbound table
+{
+  const obIdx = html.indexOf('外呼 Outbound');
+  if (obIdx !== -1) {
+    const tStart = html.indexOf('<table', obIdx);
+    const tEnd   = html.indexOf('</table>', tStart) + '</table>'.length;
+    let tbl = html.slice(tStart, tEnd);
+    const satHdrIdx = tbl.indexOf('>在线<');
+    if (satHdrIdx !== -1) {
+      const trIdx    = tbl.lastIndexOf('<tr', satHdrIdx);
+      const tbodyEnd = tbl.lastIndexOf('</tbody>');
+      if (trIdx !== -1 && tbodyEnd !== -1 && trIdx < tbodyEnd) {
+        tbl = tbl.slice(0, trIdx) + tbl.slice(tbodyEnd);
+        html = html.slice(0, tStart) + tbl + html.slice(tEnd);
+      }
+    }
+  }
+}
+
 // ── 5. Add conversion rate columns to outbound table ─────────────────────────
 // 有效跟进转化率 = 周PC / 有效跟进;  分配转化率 = 周PC / 分配Leads
 // Both inserted to the LEFT of 周PC column.
@@ -236,10 +311,9 @@ if (obHlIdx !== -1) {
     }).filter(r => r.cells.length >= 9);
 
     if (parsed.length > 1) {
-      // Green top1: all metric cols (跟进量, 跟进率, 有效跟进, 有效跟进率, 分配转化率, 有效跟进转化率, 周PC)
-      // Red bottom1: rates + PC only (有效跟进率, 分配转化率, 有效跟进转化率, 周PC)
-      const GREEN_COLS = [2, 3, 4, 5, 6, 7, 8];
-      const RED_COLS   = [5, 6, 7, 8];
+      // Green top1 + Red bottom1: all metric cols (分配Leads, 跟进量, 跟进率, 有效跟进, 有效跟进率, 分配转化率, 有效跟进转化率, 周PC)
+      const GREEN_COLS = [1, 2, 3, 4, 5, 6, 7, 8];
+      const RED_COLS   = [1, 2, 3, 4, 5, 6, 7, 8];
       const ALL_COLS   = GREEN_COLS;
       const maxV = {}, minV = {};
       for (const ci of ALL_COLS) {

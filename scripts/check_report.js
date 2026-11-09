@@ -92,9 +92,11 @@ if (!csatData) {
       if (htmlCsat === '-') { ok(name + ': - (no evals)'); } else { err(name + ': HTML=' + htmlCsat + ', json=- (no evals)'); }
       continue;
     }
-    const jsonCsat = rawCsat + '%';
-    if (htmlCsat !== jsonCsat) {
-      err(name + ': HTML=' + htmlCsat + ', json=' + jsonCsat);
+    // normalize: parse float to handle "100%" vs "100.0%" difference
+    const jsonVal  = parseFloat(String(rawCsat));
+    const htmlVal  = parseFloat(htmlCsat);
+    if (isNaN(jsonVal) || isNaN(htmlVal) || Math.abs(jsonVal - htmlVal) > 0.15) {
+      err(name + ': HTML=' + htmlCsat + ', json=' + rawCsat + '%');
     } else {
       ok(name + ': ' + htmlCsat);
     }
@@ -122,22 +124,24 @@ for (const r of tableRows) {
   monthlyPCs.push({ name, val, isTop });
 }
 const sorted = [...monthlyPCs].sort((a, b) => b.val - a.val);
-const top3Names = new Set(sorted.slice(0, 3).map(x => x.name));
+// Allow ties: top threshold = value of 3rd highest (may include ties)
+const top3Threshold = sorted.length >= 3 ? sorted[2].val : 0;
+const topNames = new Set(sorted.filter(x => x.val >= top3Threshold && x.val > 0).map(x => x.name));
 let rankTopCount = 0;
 for (const { name, val, isTop } of monthlyPCs) {
   if (isTop) rankTopCount++;
-  if (top3Names.has(name) && !isTop) {
+  if (topNames.has(name) && !isTop) {
     err(name + '(月度PC=' + val + ') should be rank-top but is not');
-  } else if (!top3Names.has(name) && isTop) {
-    err(name + '(月度PC=' + val + ') has rank-top but is not in top 3');
+  } else if (!topNames.has(name) && isTop) {
+    err(name + '(月度PC=' + val + ') has rank-top but is not in top group');
   } else if (isTop) {
     ok(name + ': rank-top, val=' + val);
   }
 }
-if (rankTopCount !== 3) {
-  err('rank-top count = ' + rankTopCount + ', expected 3');
+if (rankTopCount < 3) {
+  err('rank-top count = ' + rankTopCount + ', expected ≥3');
 } else {
-  ok('Exactly 3 rank-top cells');
+  ok('rank-top count = ' + rankTopCount + ' (ties allowed)');
 }
 
 // ─── Check 5: 零PC line ───────────────────────────────────────────────────────

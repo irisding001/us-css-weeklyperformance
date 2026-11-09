@@ -101,18 +101,17 @@ if (!DISCOVER) {
 const DATA_FLOOR = '2026-07-01';  // Business launch date — no data before this
 
 const TEAM_ORDER = [
-  'jacelynlim', 'terrychen', 'muhamadfaisal', 'calventan', 'azamuddin',
-  'jeanliew', 'whitneylee', 'alvinsim', 'zaydentan', 'vincentyew',
-  'wilsonwong',
+  'jacelynlim', 'terrychen', 'muhamadfaisal', 'azamuddin',
+  'jeanliew', 'whitneylee', 'alvinsim', 'zaydentan', 'wilsonwong',
 ];
 const CONVERSION_TEAM = new Set(TEAM_ORDER);
 
 // Workspace (us-workspace.futuoa.com) staff uid → agent name
 const WS_TEAM_MAP = {
   jacelynlim:    16510, terrychen:     14581, muhamadfaisal: 14810,
-  calventan:     16136, azamuddin:     15515, jeanliew:      17203,
+  azamuddin:     15515, jeanliew:      17203,
   whitneylee:    17204, alvinsim:      16424, zaydentan:     14675,
-  vincentyew:    14243, wilsonwong:    14727,
+  wilsonwong:    14727,
 };
 const WS_TEAM_SIDS = new Set(Object.values(WS_TEAM_MAP));
 const LC_SKILL_VALUES = ['inc conversion (en)', 'inc conversion (cn)', 'inc英文（转化）', 'inc中文（转化）'];
@@ -1855,7 +1854,7 @@ function generateHTML(data, weekStart, weekEnd) {
     + '<col style="width:22%">'   // Monthly PC
     + '</colgroup>';
   const salesTable = tbl(
-    th(b('外呼跟进量','Outbound Contacts'), b('有效跟进量','Effective (≥40s)'), b('有效跟进率','Effective Rate'), b('周转化PC','Weekly Conv. PC'), b('月总PC','Monthly Total PC')),
+    th(b('外呼跟进量','Outbound Contacts'), b('有效跟进量','Effective (≥40s)'), b('有效跟进率','Effective Rate'), b('周外呼转化PC','Weekly OB Conv. PC'), b('月总PC','Monthly Total PC')),
     [
       `<tr class="team-row"><td><strong>${obTotalFollow || '-'}</strong></td><td><strong>${obTotalEffective || '-'}</strong></td><td><strong>${obEffectiveRate}</strong></td><td><strong>${outbound.team.weeklyPC}</strong></td><td><strong>${outbound.team.monthlyPC}</strong></td></tr>`,
     ],

@@ -49,7 +49,7 @@ let html = fs.readFileSync(htmlFile, 'utf8');
 
 const {
   weeklyConsultPC = {},
-  monthlyConsultPC = {},
+  monthlyTotalPC = {},
   consultSection = {},
   emailCsat,
   teamCsat,
@@ -128,76 +128,103 @@ if (Object.keys(weeklyConsultPC).length > 0) {
   console.log('✓ Recalculated 周度总PC');
 }
 
-// ─── 4. Recalculate 月度总PC = monthly consult + monthly conv, top 3 green ────
-if (Object.keys(monthlyConsultPC).length > 0) {
-  // First pass: collect current monthly conv PC (last td in each agent row)
-  const monthlyConvPC = {};
+// ─── 4. Update 月度总PC = Guandata col[4] 已转化PC per agent, top 3 green ──────
+if (Object.keys(monthlyTotalPC).length > 0) {
+  const pcKpi    = parseInt(process.env.PC_KPI || '100', 10);
+  const weekEnd  = process.env.WEEK_END || '';
+  const timeProgress = (() => {
+    if (!weekEnd) return null;
+    const d = new Date(weekEnd + 'T00:00:00Z');
+    return d.getUTCDate() / new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+  })();
+
+  // Detect whether KPI% column exists
   const si = html.indexOf('Individual Summary');
   const ts = html.indexOf('<table', si);
   const te = html.indexOf('</table>', ts) + 8;
   const table = html.slice(ts, te);
   const rows = [...table.matchAll(/<tr>([\s\S]*?)<\/tr>/g)];
+  let hasKpiCol = false;
   for (const r of rows) {
     const tds = [...r[1].matchAll(/<td[^>]*>[\s\S]*?<\/td>/g)];
     if (tds.length < 2) continue;
     const name = tds[0][0].replace(/<[^>]+>/g, '').trim();
-    if (monthlyConsultPC[name] !== undefined) {
-      const lastVal = parseInt(tds[tds.length - 1][0].replace(/<[^>]+>/g, '').trim()) || 0;
-      monthlyConvPC[name] = lastVal;
+    if (monthlyTotalPC[name] !== undefined) {
+      const lastText = tds[tds.length - 1][0].replace(/<[^>]+>/g, '').trim();
+      if (lastText.includes('%')) hasKpiCol = true;
+      break;
     }
   }
 
-  // Calculate new monthly totals
-  const newMonthlyTotal = {};
-  for (const [name, consultVal] of Object.entries(monthlyConsultPC)) {
-    newMonthlyTotal[name] = consultVal + (monthlyConvPC[name] || 0);
-  }
-
   // Top 3 for rank-top
-  const sorted = Object.entries(newMonthlyTotal).sort((a, b) => b[1] - a[1]);
+  const sorted = Object.entries(monthlyTotalPC).sort((a, b) => b[1] - a[1]);
   const top3 = new Set(sorted.slice(0, 3).map(([n]) => n));
 
   html = patchTable(html, 'Individual Summary', table => {
     const rows = table.split('</tr>');
     const fixed = rows.map(row => {
-      for (const [name, val] of Object.entries(newMonthlyTotal)) {
+      for (const [name, val] of Object.entries(monthlyTotalPC)) {
         if (!row.includes('>' + name + '<')) continue;
         const tds = [...row.matchAll(/<td[^>]*>[\s\S]*?<\/td>/g)];
         if (tds.length < 2) continue;
-        const lastTd = tds[tds.length - 1];
         const cls = top3.has(name) ? ' class="rank-top"' : '';
-        const replacement = '<td' + cls + '>' + val + '</td>';
-        row = row.slice(0, lastTd.index) + replacement + row.slice(lastTd.index + lastTd[0].length);
+
+        if (hasKpiCol) {
+          const pcTd  = tds[tds.length - 2];
+          const kpiTd = tds[tds.length - 1];
+          const pct   = val > 0 ? Math.round(val / pcKpi * 100) : null;
+          const color = (timeProgress !== null && pct !== null)
+            ? ((pct / 100) < timeProgress ? '#dc2626' : '#16a34a')
+            : (pct !== null && pct >= 100 ? '#16a34a' : '#dc2626');
+          const newPcTd  = '<td' + cls + '>' + val + '</td>';
+          const newKpiTd = pct !== null
+            ? '<td style="font-weight:700;color:' + color + '">' + pct + '%</td>'
+            : '<td>-</td>';
+          row = row.slice(0, kpiTd.index) + newKpiTd + row.slice(kpiTd.index + kpiTd[0].length);
+          row = row.slice(0, pcTd.index)  + newPcTd  + row.slice(pcTd.index  + pcTd[0].length);
+        } else {
+          const lastTd = tds[tds.length - 1];
+          const replacement = '<td' + cls + '>' + val + '</td>';
+          row = row.slice(0, lastTd.index) + replacement + row.slice(lastTd.index + lastTd[0].length);
+        }
       }
       return row;
     });
     return fixed.join('</tr>');
   });
-  console.log('✓ Updated 月度总PC, top 3:', [...top3].join(', '));
+  console.log('✓ Updated 月度总PC (Guandata col[4]), top 3:', [...top3].join(', '));
 }
 
 // ─── 5. Update 咨询业务 section PC values ────────────────────────────────────
 if (consultSection.total !== undefined) {
-  // Total row
+  // Total row — tickets cell may have WoW <span> after the number
   html = html.replace(
-    /(<tr class="consult-total-row">[\s\S]*?<td><strong>\d+<\/strong><\/td><td><strong>)\d+(<\/strong><\/td>)/,
+    /(<tr class="consult-total-row">[\s\S]*?<td><strong>\d+<\/strong>(?:<span[^>]*>[\s\S]*?<\/span>)?<\/td><td><strong>)[\d-]+(<\/strong><\/td>)/,
     '$1' + consultSection.total + '$2'
   );
   console.log('✓ Updated consult total PC:', consultSection.total);
 }
 if (consultSection.lc !== undefined) {
+  // Tickets cell may have WoW <span>; consultPC initially '-' or a digit
   html = html.replace(
-    /(<td><strong>在线 Live Chat<\/strong><\/td><td><strong>\d+<\/strong><\/td><td><strong>)\d+(<\/strong><\/td>)/,
+    /(<td><strong>在线 Live Chat<\/strong><\/td><td><strong>\d+<\/strong>(?:<span[^>]*>[\s\S]*?<\/span>)?<\/td><td><strong>)[\d-]+(<\/strong><\/td>)/,
     '$1' + consultSection.lc + '$2'
   );
   console.log('✓ Updated LC consult PC:', consultSection.lc);
 }
 if (consultSection.phone !== undefined) {
   html = html.replace(
-    /(<td><strong>电话 Phone<\/strong><\/td><td><strong>\d+<\/strong><\/td><td><strong>)\d+(<\/strong><\/td>)/,
+    /(<td><strong>电话 Phone<\/strong><\/td><td><strong>\d+<\/strong>(?:<span[^>]*>[\s\S]*?<\/span>)?<\/td><td><strong>)[\d-]+(<\/strong><\/td>)/,
     '$1' + consultSection.phone + '$2'
   );
   console.log('✓ Updated Phone consult PC:', consultSection.phone);
+}
+if (consultSection.email !== undefined) {
+  html = html.replace(
+    /(<td><strong>邮件 Email<\/strong><\/td><td><strong>\d+<\/strong>(?:<span[^>]*>[\s\S]*?<\/span>)?<\/td><td><strong>)[\d-]+(<\/strong><\/td>)/,
+    '$1' + consultSection.email + '$2'
+  );
+  console.log('✓ Updated Email consult PC:', consultSection.email);
 }
 
 // ─── 6. Update Email CSAT in 咨询业务 section ────────────────────────────────
