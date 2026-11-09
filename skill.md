@@ -7,7 +7,11 @@ description: Generate US CSS weekly performance report (Sections 1 & 2 only) for
 
 Sections 1 & 2 only (no Highlights / Next Week Plans). Tables sorted by ticket volume descending. Bilingual performance analysis labels.
 
-**Team (11 agents):** jacelynlim / terrychen / muhamadfaisal / calventan / azamuddin / jeanliew / whitneylee / alvinsim / zaydentan / vincentyew / wilsonwong
+**Team (9 agents, from 2026-11-09):** jacelynlim / terrychen / muhamadfaisal / azamuddin / jeanliew / whitneylee / alvinsim / zaydentan / wilsonwong
+
+*(calventan 已于 2026-11 离职，从成员列表移除；vincentyew 早期已移除。run.js / run_weekly_patches.js TEAM 均不含此两人)*
+
+**月度 KPI 目标（2026-11 起）：** 团队月度 KPI = **800**（Iris 11月明确指定），原 1200 作废。Individual Summary 表 `月度KPI达成%` 列仍按个人 KPI=100（人均口径，与团队 800 解耦）。
 
 ---
 
@@ -15,18 +19,19 @@ Sections 1 & 2 only (no Highlights / Next Week Plans). Tables sorted by ticket v
 
 | PC 类型 | 来源 | 备注 |
 |--------|------|------|
-| 个人**周度转化PC** | USCM API（run.js 自动读取） | TEMP HTML Individual Summary col3 非零即可 |
-| 个人**周度咨询PC** | 用户截图 → corrections JSON `weeklyConsultPC` | API 已移除，每周必须手动填入 |
+| 个人**周度转化PC** | Guandata（run.js 通过 Guandata API 抓取，认证用 USCM_COOKIE，数据源是 `us.data.futuoa.com`） | 若 USCM_COOKIE 过期导致认证失败，patches 阶段仍会用 Guandata 正确值覆盖 |
+| 个人**周度咨询PC** | Guandata card `ndfe729d2affb4323a070459` col[6]（客服侧已转化PC）| `run_weekly_patches.js` 自动抓取 |
 | 个人**周度总PC** | 咨询PC + 转化PC（patch_corrections 计算） | — |
-| 个人**月度转化PC** | USCM API（run.js 自动读取） | USCM 过期则为 0，需重跑 Step 3 |
-| 个人**月度咨询PC** | 用户截图 → corrections JSON `monthlyConsultPC` | API 已移除，每周必须手动填入 |
-| 个人**月度总PC** | 月度咨询PC + 月度转化PC（patch_corrections 计算） | — |
-| **外呼个人周PC** | Guandata `a367cbbcbb28445a198c3518` card `ndfe729d2affb4323a070459` column[5]（客经侧已转化PC） | `patch_ob_pc.js` 自动抓取，非 USCM 计算值 |
-| **外呼转化率**（有效跟进/分配转化率） | Guandata `w1b3b7d2e763b45f6a814194`（RATE_CARD_ID 每次发现后填入） | `patch_ob_pc.js` 同时注入，不填 RATE_CARD_ID 则从数据反算 |
-| **渠道咨询PC合计**（consultSection） | Guandata page `pbb45c349b2854bad9223591` → `fetch_consult_pc_breakdown.js` → corrections JSON | lc/phone/email 三路分项；见 Step 4.5 说明 |
-| 概览栏 **周咨询PC** | = `consultSection.total` | patch_corrections 不更新，需手动替换 |
-| 概览栏 **月度PC** | = 所有人月度总PC 之和 | patch_corrections 不更新，需手动替换 |
-| 概览栏 **外呼转化PC** | = 外呼个人表 周PC 列合计（Guandata） | patch_corrections 不更新，需手动替换 |
+| 个人**月度总PC** | Guandata card `ndfe729d2affb4323a070459` **col[4]（已转化PC）**，filter: [月初, 周末] | `run_weekly_patches.js` 自动抓取，以 `monthlyTotalPC` 传入 patch_corrections；**唯一口径，不加咨询PC，不用 USCM** |
+| **外呼个人周PC** | Guandata card `ndfe729d2affb4323a070459` col[5]（客经侧已转化PC） | `patch_ob_pc.js` 自动抓取；page `a367cbbcbb28445a198c3518`。**唯一口径**，不使用 USCM 全量（见下方说明） |
+| **外呼转化率**（有效跟进/分配转化率） | Guandata page `w1b3b7d2e763b45f6a814194`，card `ra25fdcdd1f5643d49983698`（RATE_CARD_ID） | **必须从 Guandata fetch，禁止用 PC÷Leads/有效跟进反算**；无数据（含 PC=0 的 agent）显示 `0.0%` 而非 `-` |
+| **渠道咨询PC合计**（consultSection） | Guandata card `oa724299e80dd4e4daaa9301`（GROUP BY 有效跟进方式） | `run_weekly_patches.js` 自动抓取；lc/phone/email 三路 |
+| **满意度（全部）** | WS GetBadEvaluations（`us-workspace.futuoa.com/unsatisfied-orders`） | **唯一来源**；channel 1=LC / 2=Phone / 7=Email；`run_weekly_patches.js` 自动抓取 email+team；per-agent 由 patch_lc_csat.js 注入 |
+| 概览栏 **周咨询PC** | = `consultSection.total` | `run_weekly_patches.js` 自动更新 |
+| 概览栏 **月度PC** | Guandata OB card `ndfe729d2affb4323a070459` **col[4]（已转化PC）**，filter: [月初, 周末]，**全员求和** | `run_weekly_patches.js` 自动从 `monthlyFetch.totalAlreadyConverted` 更新；⚠️ 不可用 Individual Summary 末列求和代替（KPI%数值≠PC数值） |
+| 概览栏 **外呼转化PC** | = 外呼个人表 周PC 列合计（Guandata card col[5]） | `run_weekly_patches.js` 自动更新 |
+| **转化业务概览行 月总PC** | Guandata OB card `ndfe729d2affb4323a070459` **col[4]（已转化PC）**，filter: [月初, 周末]，全员求和 | `run_weekly_patches.js` 自动更新（`patchConversionOvRow` 第3参数 `monthlyGrandTotal`）；与概览栏月度PC 保持同一值 |
+| **转化业务概览行 周外呼转化PC** | Guandata card `ndfe729d2affb4323a070459` col[5] 团队合计（客经侧已转化PC） | run.js 原值为 USCM 全量，**必须手动或脚本覆盖**为 Guandata cohort 合计；与概览栏保持一致 |
 
 ---
 
@@ -37,6 +42,19 @@ Sections 1 & 2 only (no Highlights / Next Week Plans). Tables sorted by ticket v
 1. **数据无空缺** — 所有字段有值：Individual Summary 每人 PC/CSAT 非空；外呼表每列有数据；概览栏 周咨询PC / 月度PC / 外呼转化PC 已更新
 2. **核查无矛盾/异常** — 通过 check_report.js + 推送前自检清单，无任何 ERROR；WARN 项已逐一确认合理
 3. **格式与上周一致** — 打开上周报告（`weekly_report_YYYY-MM-DD_MMDD.html`）对照：列数/列序/着色规则/WoW 子标签位置与上周完全相同；若有新增列须明确标注
+
+⚠️ **推送前必须经用户确认数据**：Claude 必须主动运行 check_report.js，将核查结果逐项输出给用户，等待用户明确确认"数据无误"后，才可提议推送。**不得在数据未经用户确认的情况下直接提议或执行推送。**
+
+⚠️⚠️⚠️ **推送流程硬性规则（2026-10-27 起强制）**：
+
+1. **推送前必须读完 Step 7 全文**（push 流程），不得跳过、不得依赖 memory
+2. **飞书推送唯一方式：** `node C:/Users/irisding/push_weekly_report.js --week-start YYYY-MM-DD --week-end YYYY-MM-DD`
+3. **禁止** 用 lark-cli / lark-im skill 手动发飞书消息到任何群（bot 不在群会报错，且极易发错群）
+4. **禁止** 用 memory 里其他 skill 的 chat_id（如 `oc_6b53...` 是 US-CCS-weekly-report 群，**不是本 skill 的群**）
+5. **本 skill 群唯一 chat_id：** `oc_57d5074a6079466f543bfad14bdd459b`（Moomoo US CSS 群），但**不得直接 lark-cli 发**，必须用上述 webhook 脚本
+6. **GitHub 推送** 与 **飞书推送** 是两步，可以分别执行；任一步执行前必须先告知用户"即将执行 X 推送"，得到明确同意再执行
+
+**2026-10-27 教训**：未读 Step 7、误用 memory 里另一份报告的 chat_id、用 lark-cli 手动发到错误群（US CSS Team Weekly Report 群），导致消息误发。已撤回，但风险极高。再犯不可原谅。
 
 **无法完成时必须告知用户：**
 - 任何步骤遇到数据缺失、API 返回异常、字段无法定位 → 立即停止，留言说明具体哪一步卡住、卡在哪个字段，等待 Iris 确认后再继续
@@ -75,6 +93,23 @@ Ask user for: `YYYY-MM-DD ~ YYYY-MM-DD`
 
 ---
 
+## 全流程一键入口（推荐）
+
+```bash
+node C:/Users/irisding/run_weekly.js \
+  --week-start YYYY-MM-DD \
+  --week-end   YYYY-MM-DD \
+  --prev       C:/Users/irisding/us-css-weeklyperformance/weekly_report_prev.html
+```
+
+自动链式执行：Step 3 → Step 3.5 → Step 4（postprocess）→ Step 4.0（patches）→ Step 4.6（check）
+
+- `--skip-step3`：跳过 proxy/USCM，复用已有 `weekly_report_TEMP.html`（USCM 未过期时用）
+- 输出路径自动推导：`us-css-weeklyperformance/weekly_report_YYYY-MM-DD_MMDD.html`
+- `run_weekly_step3.js` 从 `WEEK_START`/`WEEK_END` env vars 读取日期（run_weekly.js 自动传入）
+
+---
+
 ## Step 3: Generate base report
 
 **Script:** `C:/Users/irisding/.claude/skills/us-css-weeklyperformance/scripts/run.js`（独立副本，不依赖其他 skill）
@@ -95,24 +130,28 @@ Verify TEMP output — Individual Summary col3 (转化PC) should have non-zero v
 
 ## Step 3.5: Fetch cross-channel CSAT
 
+**所有满意度数据统一来源：`https://us-workspace.futuoa.com/unsatisfied-orders`**（WS GetBadEvaluations API）。不使用 Guandata / fetch_csat.js。
+
 ```bash
 node C:/Users/irisding/run_weekly_step3_5.js
 # saves to C:/Users/irisding/csat_YYYY-MM-DD.json
 ```
 
-**CSAT formula:** `(total - neg) / total`
-- total = LC tickets + Phone inbound answered + Email replied
-- neg = LC neg_count + Phone neg_count + Email neg_count
+**WS channel 编号映射：**
+| channel 值 | 渠道 |
+|-----------|------|
+| 1 | LC（在线 Live Chat） |
+| 2 | Phone（电话） |
+| 7 | Email（邮件） |
 
-**Email CSAT** — fetch separately from designated page (more accurate than run.js):
-- Page: `https://us.data.futuoa.com/page/fbfc690af15de4953bc0725c`
-- Card: `s9171c1087a664ae689047c4` · Dataset: `ncd519d0a95e74646bf48e5f`
-- Team filter: `"US Conversion CS team"` · Version: `951`
-- Filter: 工单创建-日 (`fdId=a04853e434ab34d21970334a`) for week range
+**CSAT 计算公式：** `(total - neg) / total`
+- `neg` = `optionSatisfied === 3 || optionSatisfied === 4`
+- **per-agent**：filter by `item.sid`（staff_id），不分 channel → 综合满意度
+- **per-channel**：filter by `item.channel`，再按 agent 分组 → LC/Phone/Email 各渠道满意度
+- **team**：所有 evaluations，不分 agent/channel
 
-⚠️ **fetch_csat.js email neg is currently broken** (v_param unresolved → all email CSAT = 100%). After running, manually verify email CSAT.
-
-**Email channel CSAT (WS channel 7):** Use WS GetBadEvaluations API — same endpoint as patch_lc_csat.js, but filter `channel === 7`. Formula: `(total - neg) / total` where neg = `optionSatisfied === 3 || 4`. ⚠️ Email eval volume is typically very low (< 10/week); 100% CSAT with small sample is possible/acceptable — confirm with user rather than treating as error.
+⚠️ **fetch_csat.js（Guandata 方式）已废弃**，其 email neg 字段长期返回 0（→ CSAT 假性 100%）。全部改用 WS。
+⚠️ Email eval 样本通常 < 10/week；100% CSAT + 小样本属正常，留言说明即可。
 
 ---
 
@@ -121,7 +160,7 @@ node C:/Users/irisding/run_weekly_step3_5.js
 ```bash
 node "C:\Users\irisding\.claude\skills\us-css-weeklyperformance\scripts\postprocess.js" \
   "C:/Users/irisding/weekly_report_TEMP.html" \
-  "C:/Users/irisding/us-css-weeklyreport/weekly_report_YYYY-MM-DD.html" \
+  "C:/Users/irisding/us-css-weeklyperformance/weekly_report_YYYY-MM-DD.html" \
   --csat "C:/Users/irisding/csat_YYYY-MM-DD.json"
 ```
 
@@ -132,9 +171,67 @@ Omit `--csat` to remove the CSAT column entirely. Output filename uses `--week-s
 **CSS 自动压缩：** postprocess.js 输出时自动注入 Individual Summary 紧凑样式 override，无需手动调整。
 
 **postprocess.js 自动行为（2026-08-10 起）：**
+- 自动删除 Section 三 `满意度分析` 整块（2026-09-01 起）— 报告仅保留 Section 一（团队业绩）和 Section 二（个人业绩）
 - 自动删除 `业绩分析 Performance Analysis` 区块（h3 + 内容 div）— 无需手动删除
-- 自动删除 Section 二（渠道个人明细）所有 `.dot-red` 红灯指示器（保留彩色文字）
-- 外呼个人表：全部度量列（跟进量/跟进率/有效跟进/有效跟进率/分配转化率/有效跟进转化率/周PC）标绿 top1；仅比率+PC列（有效跟进率/分配转化率/有效跟进转化率/周PC）标红 bottom1
+- 自动删除 `满意度小结` 区块（h3 + 内容 div）— 已由 Section 三 整体删除覆盖
+- 全局删除所有 `.dot-red` 红灯指示器（含 position:relative 外层 span），仅保留彩色文字
+- 自动删除外呼个人表内的满意度分布行（在线/电话/邮件/超赞/满意/一般/不满意/糟糕，2026-09-01 起）
+- 外呼个人表：全部度量列标绿 top1；仅比率+PC列标红 bottom1
+- **Individual Summary CSAT 着色（2026-09-01 起）：** 周满意度（cells[5]）和月满意度（cells[8]）统一规则：< 84% 标红（`color:#ef4444`）；top1 标绿（`color:#15803d`）；不显示小红点
+
+---
+
+## Step 4.0: Run automated patch pipeline (one command)
+
+**推荐方式（2026-09-01 起）：** 一条命令完成所有 patch 步骤（4.1~4.55）并自动更新概览栏。
+
+```bash
+node C:/Users/irisding/run_weekly_patches.js \
+  --week-start YYYY-MM-DD \
+  --week-end   YYYY-MM-DD \
+  --report     C:/Users/irisding/us-css-weeklyperformance/weekly_report_YYYY-MM-DD_MMDD.html \
+  --prev       C:/Users/irisding/us-css-weeklyperformance/weekly_report_prev-YYYY-MM-DD_MMDD.html \
+  [--pc-kpi N]
+```
+
+**`--pc-kpi`**：月度PC KPI 目标（默认 `100`，9月起生效）。传入后作为 `PC_KPI` env var 传给 patch_corrections.js，用于计算 KPI 完成度列（`月度总PC ÷ PC_KPI`，百分比显示，时间进度着色）。
+
+- **KPI 完成度着色规则**：`pct/100 < weekEndDay/daysInMonth`（当前进度落后）→ 红色 `#dc2626`；否则绿色 `#16a34a`
+- **9月 PC_KPI = 100**（无需每次传入，默认值已是 100）
+
+自动执行顺序：
+1. Cookie 有效性检查（DATA_COOKIE / WS_COOKIE，失败则退出并给出提示）
+2. 从 Guandata OB card 抓取 weeklyConsultPC（col[6]）+ monthlyTotalPC（col[4]）
+3. 从 PC detail card 抓取 consultSection（lc/phone/email）
+4. 从 WS GetBadEvaluations 抓取 emailCsat + teamCsat + perAgentCsat（含 LC/Phone/Email 分渠道）
+5. patch_corrections.js（注入咨询PC、渠道PC、CSAT）
+6. patch_ob_pc.js（重建/更新外呼个人表，内置幂等检测）
+7. patch_lc_csat.js（注入 LC CSAT 到个人渠道表）
+8. patch_channel_wow.js（注入 WoW 子标签）
+9. patch_email_data.js（注入邮件 per-agent 工单/SLA/CSAT；解析 PATCH_EMAIL_SUMMARY 更新 Channel Team Summary 邮件行）
+10. 注入 per-agent CSAT → Individual Summary cells[5]（周满意度）
+11. 覆盖转化业务概览行 周外呼转化PC（Guandata cohort 合计）
+12. 自动更新概览栏（周咨询PC / 月度PC / 外呼转化PC）
+13. 更新概览栏 CSAT chips（综合满意度 / 在线 CSAT / 电话 CSAT / 邮件 CSAT）
+
+⚠️ 脚本读取 `run_weekly_config.json` — 运行前确保 DATA_COOKIE / WS_COOKIE 有效。
+⚠️ patch_ob_pc.js 内置幂等检测：已是 9 列时跳过重建，只更新 PC+转化率；完整 pipeline 可重复运行。
+
+### 手动注入脚本（run_weekly_patches 之后执行，顺序固定）
+
+run_weekly_patches.js 完成后，还需运行以下手动注入脚本（顺序敏感，前者输出会被后者覆盖）：
+
+| 顺序 | 脚本 | 作用 |
+|------|------|------|
+| 1 | `inject_lc_email_wow.js` | LC/Email 行 WoW 子标签（patch_channel_wow 漏注入的修复） |
+| 2 | `inject_conv_wow.js` | 转化业务表 4 列 WoW（不含月总PC） |
+| 3 | `inject_fatal_individual.js` | Individual Summary 致命/非致命差错列 |
+| 4 | `inject_eff_follow_red.js` | 外呼个人表 有效跟进 < 50 标红 |
+| 5 | `inject_kpi_time_chips.js` | 概览栏第二行：月时间进度 + KPI 进度 chip |
+| 6 | `inject_summary.js` | 本周业绩小结 + email CSAT 行 + 综合满意度名单 |
+
+⚠️ **所有手动注入脚本必须放在 run_weekly_patches.js 之后**，否则 patches 会覆盖手动改动。
+⚠️ **inject_summary.js 必须最后**，因其锚点依赖前序脚本的最终 HTML 状态。
 
 ---
 
@@ -161,17 +258,19 @@ node "C:/Users/irisding/us-css-weeklyperformance/scripts/patch_section2_ranks.js
 
 run.js 输出的外呼个人表只有 5 列（Agent|分配Leads|跟进量|有效跟进|周PC_USCM），且 周PC 用 USCM 全量值而非 cohort 值。此步骤完全重建该表为正确 9 列，并从 Guandata 抓取 cohort PC。
 
-**每次运行前更新脚本顶部三个常量：**
-```js
-const REPORT = 'C:/Users/irisding/us-css-weeklyreport/weekly_report_YYYY-MM-DD_MMDD.html';
-const START  = 'YYYY-MM-DD';
-const END    = 'YYYY-MM-DD';
+**通过 run_weekly_patches.js 调用（推荐）** — 自动传入 PATCH_REPORT/PATCH_START/PATCH_END 环境变量。
+
+**手动运行（如需单独运行）：** 更新脚本顶部三个常量或设置 env vars：
+```bash
+PATCH_REPORT=".../weekly_report_YYYY-MM-DD.html" PATCH_START="YYYY-MM-DD" PATCH_END="YYYY-MM-DD" \
+  node C:/Users/irisding/patch_ob_pc.js
 ```
 
 **RATE_CARD_ID（转化率卡片）：**
-- 首次使用先 discover：`node C:/Users/irisding/patch_ob_pc.js --discover`
-- 记录输出的 24 位 card ID，填入 `RATE_CARD_ID = 'xxxxxx...'`
-- 若不填，脚本自动从 cohort PC ÷ 有效跟进 / 分配Leads 反算转化率
+- 已固定：`ra25fdcdd1f5643d49983698`（page `w1b3b7d2e763b45f6a814194`）
+- ⚠️ **禁止反算**：转化率必须从 Guandata fetch，不得用 cohort PC ÷ 有效跟进 / 分配Leads 代替
+- PC=0 的 agent（如 jeanliew 本周无转化）：rate card 应返回 0% → 显示 `0.0%`，而非 `-`
+- 若 rate card 返回空行（agent 不在结果中）→ 显示 `0.0%` 而非 `-`（表示有跟进但 0 转化）
 
 **数据来源：**
 - 外呼 cohort PC：Page `a367cbbcbb28445a198c3518` → Card `ndfe729d2affb4323a070459` column[5] = `客经侧已转化PC`
@@ -194,6 +293,8 @@ node C:/Users/irisding/patch_ob_pc.js
 
 ⚠️ **运行时机：** 在 postprocess.js 之后、check_report.js 之前运行。postprocess.js 的 Step 5（注入转化率列）会被此脚本完全覆盖，无冲突。
 
+⚠️ **幂等说明：** patch_ob_pc.js 内置列数检测 — 首次运行检测到 5 列时完整重建为 9 列；后续运行检测到 ≥9 列时跳过重建，仅更新 PC 和转化率列。可安全重复运行，无需 git checkout。
+
 ---
 
 ## Step 4.4: Patch LC CSAT to 个人渠道业绩 table
@@ -204,17 +305,12 @@ Fetches LC-only CSAT from WS and injects WS 满意度 data into the 在线 Live 
 
 **Script:** `C:/Users/irisding/patch_lc_csat.js`
 
-Update three constants at the top before each run:
-```js
-const REPORT = 'C:/Users/irisding/us-css-weeklyreport/weekly_report_YYYY-MM-DD_MMDD.html';
-const START  = 'YYYY-MM-DD';  // week start
-const END    = 'YYYY-MM-DD';  // week end
-```
+**通过 run_weekly_patches.js 调用（推荐）** — 自动传入 PATCH_REPORT/PATCH_START/PATCH_END/WS_COOKIE 环境变量。
 
-WS_COOKIE is read from the environment or falls back to the hardcoded value in the file — update the hardcoded value with a fresh `us-workspace.futuoa.com` cookie if needed.
-
+**手动运行：**
 ```bash
-node C:/Users/irisding/patch_lc_csat.js
+PATCH_REPORT=".../weekly_report_YYYY.html" PATCH_START="YYYY-MM-DD" PATCH_END="YYYY-MM-DD" \
+  node C:/Users/irisding/patch_lc_csat.js
 ```
 
 Output: prints per-agent LC total/neg/csat, then writes the patched HTML.
@@ -235,9 +331,16 @@ Channel Team Summary 邮件行需手动更新 — patch_email_data.js 只更新 
 
 | 列 | 来源 | 备注 |
 |---|---|---|
-| 邮件工单总量 | Section 二邮件列各人 tickets 合计（patch_email_data.js console 输出） | 验证：各人相加 |
+| 邮件工单总量 | **Guandata API 自动获取**（见下方） | 验证：各人之和 = 团队合计 |
 | 邮件 SLA | patch_email_data.js console 输出 team SLA（加权均值，非各人平均） | 格式：XX.X% |
 | 邮件 CSAT | WS GetBadEvaluations `channel === 7`，formula: `(total-neg)/total` | 样本 < 10 可接受，留言说明 |
+
+**邮件工单总量 — Guandata API 方法（patch_email_data.js）：**
+- Card: `fa9508e7b7ef0432bb2f68ea` · Dataset: `b2c3bbdd011c8413c9efea28`
+- Filter fdId: `d9cd5c72c8fab4ba080a791a`（工单创建-日，BT 口径）
+- 认证：`DATA_COOKIE`（含 uIdToken），加 `raw-backend-response: TRUE` header
+- 聚合：SUM 所有 agent 的 `data[i][0].v` = 团队邮件工单总量
+- ⚠️ 勿用 `ncd519d0a95e74646bf48e5f`（CSAT 评价数据集，只含被评价工单，值偏小，如 47 vs 实际 176）
 
 **着色：** SLA ≥90% / CSAT ≥84% → `color:#15803d`；否则 `color:#ef4444`
 
@@ -245,52 +348,53 @@ Channel Team Summary 邮件行需手动更新 — patch_email_data.js 只更新 
 
 ---
 
-## Step 4.5: Manual data corrections
+## Step 4.5: Data corrections (now auto-fetched)
 
-Collect from user (screenshots) and build a config JSON:
+**2026-09-01 起：所有数据通过 `run_weekly_patches.js` 自动抓取，无需手动 corrections JSON。**
 
+自动获取内容：
+- `weeklyConsultPC` — Guandata OB card `ndfe729d2affb4323a070459` col[6]（客服侧已转化PC，周度）
+- `monthlyTotalPC` — 同 card col[4]（已转化PC，月初至周末）；**唯一个人月度PC来源，不加咨询PC**
+- `consultSection` (lc/phone/email) — Guandata card `oa724299e80dd4e4daaa9301` GROUP BY 有效跟进方式
+- `emailCsat` — WS GetBadEvaluations `channel === 7`
+- `teamCsat` — WS GetBadEvaluations all channels
+
+**数据来源映射：**
+
+| dim[4] / channel 值 | 映射渠道 |
+|---------------------|---------|
+| 客服工单-在线咨询 | LC |
+| 客服工单-电话 | Phone |
+| 客服工单-邮件 | Email |
+| 外呼 / SMS | 不计入咨询PC |
+
+⚠️ **如 consultSection GROUP BY 返回空**（历史上曾出现），`run_weekly_patches.js` 自动降级：consultSection.total = weeklyConsultPC 之和；lc/phone/email 为 0（Channel Team Summary 渠道 consultPC 列留空需手动填入）。
+
+⚠️ **咨询PC 字段已从 USCM API 移除。** run.js TEMP HTML 中个人咨询PC 全为 0 是正常的；patch 阶段由 run_weekly_patches.js 填入正确值。
+
+**手动 corrections JSON（如需覆盖自动值）：**
 ```json
 {
-  "weeklyConsultPC": {
-    "alvinsim": 2, "azamuddin": 1, "calventan": 4, "jacelynlim": 2,
-    "muhamadfaisal": 5, "terrychen": 3, "vincentyew": 3,
-    "whitneylee": 1, "zaydentan": 1, "zyonnleong": 2
-  },
-  "monthlyConsultPC": {
-    "alvinsim": 11, "azamuddin": 11, "calventan": 15, "jacelynlim": 15,
-    "jeanliew": 11, "muhamadfaisal": 17, "terrychen": 13, "vincentyew": 7,
-    "whitneylee": 13, "wilsonwong": 8, "zaydentan": 7, "zyonnleong": 2
-  },
-  "consultSection": { "total": 24, "lc": 10, "phone": 14, "email": 0 },
+  "weeklyConsultPC": { "agentName": 3, ... },
+  "monthlyTotalPC":  { "agentName": 31, ... },
+  "consultSection":  { "total": 57, "lc": 31, "phone": 20, "email": 6 },
   "emailCsat": "71.0%",
-  "teamCsat": "85.3%"
+  "teamCsat":  "85.3%"
 }
 ```
-
-**渠道咨询PC合计（consultSection）自动获取：**
 ```bash
-node C:/Users/irisding/fetch_consult_pc_breakdown.js
-# 输出按 有效跟进方式 分组的 PC，保存到 consult_pc_breakdown.json
-# 映射到 lc/phone/email 后填入 corrections JSON
+node ".../patch_corrections.js" <report.html> --config corrections.json
 ```
-- 数据页：`https://us.data.futuoa.com/page/pbb45c349b2854bad9223591`
-- Card: `oa724299e80dd4e4daaa9301` · Dataset: `m79e24ac5abd4430c877951f`
-- 当前脚本按 `有效跟进方式` 分组，不是按 LC/Phone/Email 分组 — 需将 output 各行手动映射到渠道再填入 `consultSection`
-- `weeklyConsultPC` / `monthlyConsultPC`（个人粒度）仍需从截图手动读取
-
-⚠️ **咨询PC（online_pc / phone_pc / email_pc）字段已从 USCM API 移除。** run.js 生成的 TEMP HTML 中个人咨询PC 全为 0，这是正常的，不是 USCM_COOKIE 过期。每周必须从用户提供的截图手动统计后填入 `weeklyConsultPC` / `monthlyConsultPC`，否则所有人咨询PC 为 0 且 周度总PC = 转化PC。
-
-⚠️ **转化PC（convPC）** 由 USCM API 正常返回，run.js 读取正确。验证方法：TEMP HTML Individual Summary col3（转化PC）大部分人非零即可。
 
 Notes:
 - `jeanliew` / `wilsonwong` often have 0 weekly consult PC
-- `monthlyConsultPC`: month-to-date per agent (consult only)
+- `monthlyTotalPC`: Guandata col[4] 已转化PC per agent，month-to-date。**个人月度总PC = 此值，不再 + consult**
 - `teamCsat`: overall WS CSAT shown in consultation header (fetch from `us-workspace.futuoa.com`)
-- patch_corrections reads TEMP HTML's last column (月度总PC from run.js) as monthly conv PC, then adds monthlyConsultPC → final 月度总PC = consult + conv. **If USCM was expired during run.js, monthly conv = 0 and 月度总PC = monthlyConsultPC only — must re-run Step 3 with valid USCM first.**
+- 个人月度总PC 合计 应 = 概览栏月度PC = 转化业务月总PC（三者同源 Guandata col[4]）
 
 ```bash
 node "C:\Users\irisding\.claude\skills\us-css-weeklyperformance\scripts\patch_corrections.js" \
-  "C:/Users/irisding/us-css-weeklyreport/weekly_report_YYYY-MM-DD.html" \
+  "C:/Users/irisding/us-css-weeklyperformance/weekly_report_YYYY-MM-DD.html" \
   --config "C:/Users/irisding/corrections_YYYY-MM-DD.json"
 ```
 
@@ -315,12 +419,17 @@ const rate   = (follow / assignedLeads * 100).toFixed(1) + '%'; // e.g. "90.0%"
 - 同一 card 内 column[5] = `客经侧已转化 PC`（fdId: `c04a7710cb4594ff2b96b6a9`）
 - cohort 口径：仅统计本周新 leads 的转化，与 USCM 全量 conv_pc 不同
 
+**⚠️ 外呼转化PC 两个数字说明（不要混淆）：**
+- **客经侧已转化PC（Guandata col[5]）= cohort 口径**：仅统计本周新分配 Leads 在本周内的转化，是报告的**唯一标准指标**
+- **USCM 全量 PC（转化业务团队汇总行）**：本周所有外呼转化，含历史 Leads 本周才转化的，与 cohort 值通常不一致
+- 概览栏外呼转化PC、个人外呼表周PC列、WoW 对比，**全部使用 cohort（Guandata）口径**，忽略 USCM 全量值
+
 **外呼表列顺序规则（固定）：**
 ```
 分配Leads | 跟进量 | 跟进率 | 有效跟进 | 有效跟进率 | 分配转化率 | 有效跟进转化率 | 周PC
 ```
 - 分配转化率 在 有效跟进转化率 **左侧**
-- postprocess.js 自动标绿全部度量列（col2~col8）top1；仅比率+PC列标红 bottom1 — **无需手动**
+- postprocess.js / patch_ob_pc.js 自动标绿+标红所有度量列（col1~col8，含分配Leads）top1绿 + bottom1红 — **无需手动**
 - 有效跟进量（col4）< 25 标红（需手动 — postprocess.js 不处理此规则）
 
 **Bug 5: Phone FCR 列显示邮件工单数（无电话工单的 agent）**
@@ -334,6 +443,11 @@ run.js 对没有电话工单的 agent，Phone FCR 列写入其邮件工单数（
 - `<strong>76.7%<<span style="color:#ef4444">/strong></span>` — `/strong>` 变成可见文字
 - `<<span style="color:#ef4444">td>91.2%</span>` — `<td>` 标签破坏
 修复：用确切字符串替换（而非宽泛 regex），或将 regex 锚定到 `<td>` 和 `</td>` 边界内。
+
+**Bug 5 (2026-10-26 修复): postprocess.js 业绩分析 regex 吞掉整个 Section 二**
+原 regex `<h3[^>]*>业绩分析[^<]*<\/h3>[\s\S]*?(?=\s*<div style="padding:14px 18px;background:#f8faff)` 的 lookahead 锚定到 Section 三之后的本周业绩小结 div，`[\s\S]*?` 一路吞掉了渠道个人明细表 + 外呼表 + Section 三，导致报告只剩 3 张表（Section 一）。
+修复：regex 改为只匹配业绩分析 h3 + 自身包裹 div：`<h3[^>]*>业绩分析[^<]*<\/h3>\s*<div[^>]*>[\s\S]*?<\/div>\s*<\/div>`。
+症状：检查报告 grep `id="二"` 只返回 1 行且无 `Channel Breakdown` 文本 → 即中此 bug，需重跑 postprocess + 全部 patches。
 
 ### Known patch_corrections bugs — always fix manually after running:
 
@@ -358,36 +472,129 @@ check_report.js checks 6 & 7 will WARN if these lines are missing. Inject manual
 - Email CSAT 显示 `100.0%` → fetch_csat.js email neg 已知是 broken 状态，100% 是假数据，**删除该行**
 - 综合满意度名单与 Individual Summary CSAT 列不符 → 删除并手动重写准确名单
 
-### Overview bar manual fixes (patch_corrections does not update these):
+### Overview bar（2026-09-01 起由 run_weekly_patches.js 自动更新）：
 
-After patch_corrections, the overview bar `本周概览` still shows API values:
-- **周咨询PC** shows 0 (API broken) → replace with `consultSection.total`
-- **月度PC** shows monthly conv only → replace with sum of all agents' 月度总PC from Individual Summary
-- **外呼转化PC** API value may differ from actual → replace with sum of 周PC column in outbound table (Guandata source)
+`run_weekly_patches.js` 在所有 patch 步骤完成后自动更新三个概览栏字段：
+- **周咨询PC** ← `consultSection.total`（自动抓取）
+- **月度PC** ← Guandata OB card `ndfe729d2affb4323a070459` col[4]（已转化PC）全员求和，filter: [月初, 周末]（`monthlyFetch.totalAlreadyConverted`，不是 Individual Summary 末列求和）
+- **外呼转化PC** ← Guandata OB card col[5] 团队合计（客经侧已转化PC）
 
+### Iris 自定义概览 chip（2026-11-09 更新）
+
+Iris 在本周概览栏额外要求两个 chip（run_weekly_patches.js 未自动注入，需手动加在"月度PC"chip 后面）：
+
+- **KPI 进度**：`月度PC ÷ 800`（团队月度 KPI=800，9 agents × 人均 100），保留 1 位小数 + `%`，**不带括号**（如 `15.5%`，不显示 `124/800`）
+- **月时间进度**：周末日期 / 当月总天数（如 11/08 → 8/30 = 26.7%），保留 1 位小数 + `%`，不带"（XX/XX 天）"括号
+
+注入脚本：`C:/Users/irisding/inject_kpi_time_chips.js`
+
+每月手动更新两个值：
+- `monthlyPC`（Guandata col[4] 全员求和）→ KPI 进度 = `monthlyPC / 800`，保留 1 位小数 + `%`，**不带括号**（如 `15.5%`）
+- `weekEndDay` / `daysInMonth`（如 11/08 → 8/30 = 26.7%）→ 月时间进度 = `weekEndDay / daysInMonth`，保留 1 位小数 + `%`
+
+锚点：`<span ...><strong>邮件 CSAT</strong> XX.X%</span>` chip（第一行最后一个），注入到其后面，用 `<span style="flex-basis:100%;height:0"></span>` 强制换行到第二行。
+
+⚠️ **Flex 容器换行技巧**：概览栏 chips 容器是 `display:flex;flex-wrap:wrap`，`<br>` 不生效。必须用 `<span style="flex-basis:100%;height:0"></span>` 强制换行。
+
+⚠️ 每月需手动改 anchor 里的 `N 单` 数值，以及 chip 内的两个百分比。脚本动态读取月度PC 值（`/<strong>月度PC<\/strong> (\d+) 单/`），但 `weekEndDay` / `daysInMonth` 仍写死在脚本中，需每月更新。
+
+### 转化业务表 WoW 子标签（2026-10-26 新增，需手动注入）
+
+转化业务表（Outbound Contacts | Effective | Effective Rate | Weekly OB Conv. PC | Monthly Total PC）4 列需手动注入 WoW 子标签（**月总PC 不加 WoW** — Iris 明确要求）。
+
+注入脚本：`C:/Users/irisding/inject_conv_wow.js`
+
+每月需手动更新 cur/prev 数据对象：
 ```js
-html = html.replace('<strong>周咨询PC</strong> 0 单', '<strong>周咨询PC</strong> 22 单');
-html = html.replace('<strong>月度PC</strong> 158 单', '<strong>月度PC</strong> 317 单');
-html = html.replace('<strong>外呼转化PC</strong> 73 单', '<strong>外呼转化PC</strong> 43 单');
+const cur={contacts:2294, eff:415, effRate:18.1, weeklyPC:61, monthlyPC:472};
+const prev={contacts:2187, eff:435, effRate:19.9, weeklyPC:71, monthlyPC:356};
+```
+
+| 列 | WoW 来源 |
+|---|---|
+| 外呼跟进量 | cur.contacts - prev.contacts |
+| 有效跟进量 | cur.eff - prev.eff |
+| 有效跟进率 | cur.effRate - prev.effRate（单位 `pp`） |
+| 周外呼转化PC | cur.weeklyPC - prev.weeklyPC |
+| **月总PC** | ❌ 不加 WoW |
+
+⚠️ patch_channel_wow.js 不处理转化业务表，仅处理 Channel Team Summary（合计/LC/Phone/Email 4 行）。转化业务表 WoW 需手动注入。
+
+### 外呼个人表 有效跟进 < 50 标红（2026-10-27 新增，需手动注入）
+
+外呼个人表（Section 二 外呼 Outbound Conversion）的"有效跟进"列（第5列）值 < 50 时标红：`<strong style="color:#ef4444;font-weight:600">N</strong>`。
+
+注入脚本：`C:/Users/irisding/inject_eff_follow_red.js`
+
+- 锚点：外呼表 `<tbody>` 内每行第 5 个 `<td>`
+- 幂等：已标红（含 `<strong`）的 cell 跳过；纯数字 cell 才处理
+- 阈值：`< 50` 标红；`>= 50` 不动；`-`（无跟进）保持原红色样式
+
+### 转化业务表 WoW 已知 bug：patch_channel_wow.js 漏注入 LC/Email 行
+
+`patch_channel_wow.js` 的 regex `/<tr[^>]*>[\s\S]*?<\/tr>/g` 在合并 `<tr>` 时，因合计行缺 `</tr>` 闭合标签，会把合计行 + 在线 Live Chat 行合并成一行，导致 LC 行 label 匹配优先命中"合计 Total"，最终只注入 合计/Phone 两行 WoW，LC/Email 被 SKIP。
+
+**临时修复**：用独立 node 脚本 `inject_lc_email_wow.js`（待补 skill 文档）手动注入 LC/Email 行的 WoW 子标签。
+
+### 致命/非致命差错列（Step 4.65）— 已知失败 TODO
+
+`fetch_fatal.js` 当前 401（card `ndfe729d2affb4323a070459` POST data 返回 1012 非法过滤参数 / 0 rows）。原因排查中：
+- region fdId 用 `ud94da47e746c4b5e9a9f8f6`（旧值）→ 改用 `l08320afe361b46ed9294ac3`（与 patches 一致）后 status=200 但 rows=0
+- 可能 fatal/nonfatal 字段（`m810be6ccbbbb486db0f2f99` / `fa0669df08d964728b247041`）不在此 card，或需配合 team filter（`n639f8972951f40b5b498f17`）
+
+**临时方案**：手动从 Guandata 后台或 USCM 月报获取致命/非致命数据，手动注入 Individual Summary 月度列。本报告（10/19-10/25）未注入致命/非致命，后续需 Iris 协助定位正确 card / fdId。
+
+如需手动更新（run_weekly_patches.js 未运行的情况）：
+```js
+html = html.replace(/(<strong>周咨询PC<\/strong>)\s*\d+\s*单/, '$1 22 单');
+html = html.replace(/(<strong>月度PC<\/strong>)\s*\d+\s*单/,   '$1 317 单');
+html = html.replace(/(<strong>外呼转化PC<\/strong>)\s*\d+\s*单/, '$1 43 单');
 ```
 
 ---
 
-## Step 4.55: Channel Team Summary WoW 子标签
+## Step 4.55: Channel Team Summary WoW 子标签（自动）
 
-渠道汇总表（在线/电话/邮件/合计）的 **工单量、咨询PC、CSAT** 三列需加 WoW 对比子标签。
+渠道汇总表（合计/在线/电话/邮件）的 **工单量、咨询PC、满意度** 三列自动注入 WoW 对比子标签。
+
+**Script:** `C:/Users/irisding/patch_channel_wow.js`
+
+```bash
+node C:/Users/irisding/patch_channel_wow.js \
+  --current C:/Users/irisding/us-css-weeklyperformance/weekly_report_YYYY-MM-DD_MMDD.html \
+  --prev    C:/Users/irisding/us-css-weeklyperformance/weekly_report_PREV-MM-DD_MMDD.html
+```
+
+- `--prev` 填上一周的报告文件名（通常是上周一 ~ 上周日那份）
+- 脚本自动读取双方 Channel Team Summary，计算差值并注入；可重复运行（幂等）
+- CSAT 差值单位 `pp`；工单/PC 用整数差；正绿负红零灰
 
 **格式：**
 ```html
-<span class="sub-lbl" style="color:#15803d">▲+20</span>   <!-- 上涨绿 -->
-<span class="sub-lbl" style="color:#ef4444">▼-14</span>   <!-- 下跌红 -->
-<span class="sub-lbl" style="color:#999">±0</span>        <!-- 无变化灰 -->
+<span class="sub-lbl" style="color:#15803d">▲+20</span>
+<span class="sub-lbl" style="color:#ef4444">▼-14</span>
+<span class="sub-lbl" style="color:#999">±0</span>
 ```
-CSAT 差值用 `pp` 为单位（如 `▲+10.8pp`）；工单/PC 用整数差值。
 
-**数据来源：** 上周报告（`weekly_report_YYYY-MM-DD_MMDD.html`）中 Channel Team Summary 对应行的值。
+⚠️ **必须对 `us-css-weeklyperformance/` 目录内的文件运行**，对 `us-css-weeklyreport/` 目录的文件运行后不会更新本仓库内容。
 
-**注入位置：** 紧接在 `<strong>值</strong>` 或 `值%` 之后，作为同一 `<td>` 内追加内容。
+**运行后验证（必做）：** 确认 **4 行 × 3 列 = 12 个** WoW 标签都已注入。在线/电话/邮件行若缺少咨询PC 或 满意度 WoW，说明脚本用了错误路径的文件，需重跑：
+
+```bash
+# 快速检查：输出各行的 pc / csat 列文本（含 WoW 则有 ▲/▼）
+node -e "
+const html = require('fs').readFileSync('C:/Users/irisding/us-css-weeklyperformance/weekly_report_YYYY-MM-DD_MMDD.html','utf8');
+const idx = html.indexOf('Channel Team Summary');
+const tbl = html.slice(html.indexOf('<table',idx), html.indexOf('</table>',html.indexOf('<table',idx))+8);
+(tbl.match(/<tr[^>]*>[\s\S]*?<\/tr>/g)||[]).forEach(r=>{
+  const name=(r.match(/<td><strong>([^<]+)<\/strong><\/td>/)||[])[1];
+  if(!name) return;
+  const tds=[...r.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map(m=>m[1].replace(/<[^>]+>/g,'').trim());
+  console.log(name.slice(0,12).padEnd(14),'pc:',tds[2],'| csat:',tds[3]);
+});
+"
+# 每行 pc 和 csat 应包含 ▲ 或 ▼
+```
 
 ---
 
@@ -395,7 +602,7 @@ CSAT 差值用 `pp` 为单位（如 `▲+10.8pp`）；工单/PC 用整数差值�
 
 ```bash
 node "C:\Users\irisding\.claude\skills\us-css-weeklyperformance\scripts\check_report.js" \
-  "C:/Users/irisding/us-css-weeklyreport/weekly_report_YYYY-MM-DD.html" \
+  "C:/Users/irisding/us-css-weeklyperformance/weekly_report_YYYY-MM-DD.html" \
   --csat "C:/Users/irisding/csat_YYYY-MM-DD.json"
 ```
 
@@ -441,6 +648,20 @@ Checks: 月度个人PC汇总已删除 · 周度总PC = 咨询PC + 转化PC · In
 Individual Summary 月度区域含 `zone-monthly` colspan=6，对应 6 列：
 **月度总工单 → 月度满意度 → 月度致命 → 月度非致命 → 月度总PC → 月度KPI达成**
 
+⚠️ **月度KPI达成必须带 `%` 显示**（如 `56%`，不能显示纯数字 `56`）。run.js 生成的值有时不带百分号，需检查并修复：
+```js
+// 修复：Individual Summary 最后一列纯数字 → 加 %
+tbl = tbl.replace(/<tr>([\s\S]*?)<\/tr>/g, (rowHtml, inner) => {
+  const cells = [...inner.matchAll(/<td([^>]*)>([\s\S]*?)<\/td>/g)];
+  if (cells.length < 10) return rowHtml;
+  const last = cells[cells.length-1];
+  const val = last[2].replace(/<[^>]+>/g,'').trim();
+  if (/^\d+$/.test(val))
+    return rowHtml.replace(last[0], last[0].replace(val + '</td>', val + '%</td>'));
+  return rowHtml;
+});
+```
+
 ⚠️ **推荐运行顺序：先 `add_fatal_columns.js`，再 `patch_monthly_sat.js`。**
 `patch_monthly_sat.js` 的 header 替换锚定 `月度致命` 已存在；若顺序颠倒，header 替换静默失败（满意度列无标题），但 per-agent 行 sat 值仍会注入，导致列顺序错乱。
 
@@ -480,7 +701,7 @@ node C:/Users/irisding/fetch_monthly_sat.js 2026-07
 **注入：**
 ```bash
 node C:/Users/irisding/patch_monthly_sat.js \
-  "C:/Users/irisding/us-css-weeklyreport/weekly_report_YYYY-MM-DD.html" \
+  "C:/Users/irisding/us-css-weeklyperformance/weekly_report_YYYY-MM-DD.html" \
   "C:/Users/irisding/monthly_sat_YYYY-MM.json"
 ```
 
@@ -506,7 +727,107 @@ node C:/Users/irisding/patch_monthly_sat.js \
 
 ---
 
-## Step 4.7: 本周业绩小结 (team-facing)
+## Step 4.65: 本周重点 Highlights 块（2026-11-09 新增，必做）
+
+报告顶部（业绩情况 Section 一 开头，概览栏下方）插入"本周重点 Highlights"块，让 KPI 进度和外呼进步一眼可见。
+
+**结构（两块，按顺序）：**
+
+1. **KPI 进度榜 KPI Progress**（紫色 chip）
+   - 全队月度合计 N 单，KPI 进度 XX.X%，月时间进度 XX.X%，落后/领先 Npp
+   - KPI 领先（达成 ≥ 时间进度）：agent（百分比）
+   - KPI 需追赶（落后时间进度）：agent(%)、agent(%)...
+
+2. **外呼进步榜 Progress / Regression**（绿色 chip）
+   - **Praise 夸奖**（周PC/跟进量/有效跟进 全面进步）：agent（PC +N）
+   - **Watch 关注**（跟进量/有效跟进 进步但周PC 退步）：agent（PC -N）
+   - **Alert 预警**：jacelynlim（周PC -N，跟进量 -N）、zaydentan（周PC 0，连续两周零转化）
+
+**HTML 模板：**
+```html
+<div style="padding:14px 18px;background:#f8faff;border:1.5px solid #1456F0;border-radius:8px;font-size:13px;color:#1a1a2e;line-height:1.9;margin-bottom:16px">
+  <div style="font-weight:700;font-size:14px;margin-bottom:12px;color:#1456F0">本周重点 Highlights</div>
+
+  <div style="margin-bottom:12px">
+    <span style="font-size:11px;font-weight:700;background:#ede9fe;color:#7c3aed;padding:2px 8px;border-radius:3px;margin-right:8px">KPI 进度榜 KPI Progress</span><br>
+    <span style="display:block;margin-top:6px">· 全队月度合计 <strong>N 单</strong>，KPI 进度 <strong style="color:#dc2626">XX.X%</strong>，月时间进度 <strong>XX.X%</strong>，落后 Npp / Team monthly N, KPI XX.X%, behind time progress XX.X% by Npp</span>
+    <span style="display:block">· <strong style="color:#15803d">KPI 领先</strong>（达成 ≥ 时间进度 XX.X%）：agent（XX%）/ Above time progress</span>
+    <span style="display:block">· <strong style="color:#dc2626">KPI 需追赶</strong>（N 人落后时间进度）：agent(XX%)、agent(XX%)... / Behind time progress</span>
+  </div>
+
+  <div>
+    <span style="font-size:11px;font-weight:700;background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:3px;margin-right:8px">外呼进步榜 Progress / Regression</span><br>
+    <span style="display:block;margin-top:6px">· <strong style="color:#15803d">夸奖 Praise</strong>（周PC/跟进量/有效跟进 全面进步）：agent（PC +N）、agent（PC +N）/ agents — all three metrics improved</span>
+    <span style="display:block">· <strong style="color:#b45309">关注 Watch</strong>（跟进量/有效跟进 进步但周PC 退步）：agent（PC -N）、agent（PC -N）— 跟进量上升但转化未跟上，注意转化效率 / improved follow-up volume but conversion lagged</span>
+    <span style="display:block">· <strong style="color:#dc2626">预警 Alert</strong>：agent（周PC -N，跟进量 -N）、agent（周PC 0，连续两周零转化，本周仅 N 通跟进）/ agent: PC -N, follow-up -N; agent: 0 PC two weeks in a row, only N follow-ups</span>
+  </div>
+</div>
+```
+
+**数据来源：**
+- KPI 进度 = `monthlyPC / 800`（团队月度 KPI=800）
+- 月时间进度 = `weekEndDay / daysInMonth`
+- WoW 对比：从上周报告（`weekly_report_PREV-MM-DD_MMDD.html`）外呼个人表抓 follow/eff/PC 三列
+
+**排序规则（强制）：**
+- Individual Summary 表：按 **周度总PC 倒序**
+- 外呼个人表：按 **周PC 倒序**
+- KPI 领先/追赶名单：按 KPI% 倒序（领先） / 正序（追赶）
+
+---
+
+## Step 4.7: Individual Summary 排序 + CSAT 标红（2026-11-09 新增，必做）
+
+**排序：** Individual Summary 表 tbody 行按 **周度总PC 倒序**（cells[3]，第4列）。
+
+**CSAT 标红：** 周满意度（cells[4]）和月满意度（cells[7]）< 84% → `<strong style="color:#ef4444">XX.X%</strong>`。
+
+注入脚本：`C:/Users/irisding/fix_ind_summary.js`
+
+```bash
+node C:/Users/irisding/fix_ind_summary.js \
+  "C:/Users/irisding/us-css-weeklyperformance/weekly_report_YYYY-MM-DD_MMDD.html"
+```
+
+⚠️ **Individual Summary 表不加 WoW 子标签**（Iris 明确要求）。WoW 只在 Channel Team Summary 和外呼个人表。
+
+---
+
+## Step 4.75: 外呼个人表排序 + WoW 三列（2026-11-09 新增，必做）
+
+**排序：** 外呼个人表 tbody 行按 **周PC 倒序**（cells[8]，第9列）。
+
+**WoW 注入范围（仅 3 列）：**
+- 跟进量（cells[2]）
+- 有效跟进（cells[4]）
+- 周PC（cells[8]）
+
+**其他列不加 WoW：** 分配Leads / 跟进率 / 有效跟进率 / 分配转化率 / 有效跟进转化率 — 全部无 WoW。
+
+**WoW 样式（强制）：**
+```html
+<span class="sub-lbl" style="font-size:9px;font-weight:400;margin-top:1px">
+  <span style="color:${arrowColor};font-weight:600">▲</span>
+  <span style="color:#000;font-weight:400">+N</span>
+</span>
+```
+- `sub-lbl` 用 `display:block`（CSS 已定义，上下显示）
+- 箭头保留颜色（▲ 绿 #15803d / ▼ 红 #dc2626 / ➡️ 灰 #6b7280 / — 灰 #9ca3af）
+- 数字黑色 `#000`，font-weight 400
+- 字号 9px
+
+注入脚本：`C:/Users/irisding/fix_ob_table.js`
+
+```bash
+node C:/Users/irisding/fix_ob_table.js \
+  "C:/Users/irisding/us-css-weeklyperformance/weekly_report_YYYY-MM-DD_MMDD.html"
+```
+
+⚠️ **跟进量列数据反推**：若 patch_ob_pc.js 输出的跟进量列数据错误（如显示百分比而非整数），用 `Follow = round(Leads × FollowRate%)` 反推。
+
+---
+
+## Step 4.8: 本周业绩小结 (team-facing)
 
 Delete the auto-generated 亮点 / Needs Improvement blocks and inject a bilingual team-facing summary. Structure:
 
@@ -542,6 +863,63 @@ Also delete: `<div class="section" id="五">` (下周计划) and the `editable-a
 
 ---
 
+## Step 4.9: 推送前完整核查（必做，不得跳过）
+
+⚠️ **强制流程：先核查 → 输出结果给用户 → 等用户明确确认数据无误 → 再提议推送。**
+任何情况下不得跳过此步骤，不得在用户未确认数据前提议或执行 git push / 飞书发送。
+
+**在询问用户是否推送之前**，主动执行以下全部检查，将结果以表格形式输出给用户。任意一项异常 → 停止，说明问题，等待用户确认后再继续。
+
+### A. 数据完整性
+
+| 检查项 | 标准 | 实际值 |
+|--------|------|--------|
+| 个人周度转化PC | 大部分人非零 | ___ |
+| 个人周度咨询PC | 全员已填入（corrections） | ___ |
+| 渠道咨询PC合计（lc+phone+email） | = 概览栏周咨询PC | ___ |
+| 外呼个人周PC合计 | = 概览栏外呼转化PC（Guandata cohort） | ___ |
+| 概览栏月度PC | = Guandata OB card col[4] 全员求和（含休假成员） | ___ |
+| Individual Summary CSAT | 无人显示 `-`（有工单的 agent） | ___ |
+| 外呼个人表转化率 | 无人显示 `-`（从 Guandata rate card fetch） | ___ |
+| per-agent email 工单量 | 非全零（有邮件工单的 agent） | ___ |
+| 业绩分析亮点 | 已存在 | ___ |
+| 业绩分析待提升点 | 已存在（有异常时必须填写） | ___ |
+
+### B. 数据正确性 / 无矛盾
+
+- 概览栏三项数值 = 对应表格合计（周咨询PC / 月度PC / 外呼转化PC）
+- Channel Team Summary 合计行 = LC + Phone + Email 各行之和
+- per-agent email 工单量合计 = Channel Team Summary 邮件工单量
+- 外呼个人表 周PC 列合计 = 概览栏外呼转化PC
+- 外呼转化率来自 Guandata rate card（不是反算），PC=0 的 agent 显示 `0.0%` 而非 `-`
+- 转化业务概览行 周外呼转化PC = Guandata cohort 合计（非 USCM 全量）
+- 月度KPI达成列格式带 `%`（如 `56%`，不能是纯数字 `56`）
+
+### C. 格式检查
+
+- 对照上周报告（上一个 `weekly_report_*.html`）：列数 / 列序 / 着色规则一致
+- **本周重点 Highlights 块已注入**（KPI 进度榜 + 外呼进步榜，KPI 在前）
+- **Individual Summary 按 周度总PC 降序排列**（最高在最上）
+- **Individual Summary CSAT < 84% 标红**（cells[4] 周满意度 + cells[7] 月满意度，`color:#ef4444`）
+- **外呼个人表按 周PC 降序排列**
+- **外呼个人表 WoW 仅在 3 列显示**（跟进量/有效跟进/周PC，其他列无 `sub-lbl`）
+- WoW 子标签上下两行显示（`display:block`），箭头保留颜色，数字黑色
+- 外呼个人表表头只有一行（tbody 内无重复 `<tr><th>` 行）
+- WoW 子标签：Channel Team Summary 4 行 × 3 列 = 12 个 `▲/▼` 标签均已注入
+- Individual Summary：无满意度 `-`、无 dot-red 指示器、月度KPI达成带 `%`
+
+### D. 错误 / WARN 检查
+
+```bash
+node "C:/Users/irisding/.claude/skills/us-css-weeklyperformance/scripts/check_report.js" \
+  "C:/Users/irisding/us-css-weeklyperformance/weekly_report_YYYY-MM-DD_MMDD.html"
+```
+
+- 所有 `✗ ERROR` 必须修复后再推送
+- `! WARN` 项逐一确认合理后方可推送
+
+---
+
 ## Step 5: Upload to GitHub
 
 > ⚠️ **执行前必须向 Iris 确认**：列出将要执行的命令，等待 Iris 明确回复"确认"或"yes"后再执行。
@@ -550,33 +928,52 @@ Also delete: `<div class="section" id="五">` (下周计划) and the `editable-a
 例：`weekly_report_2026-07-20_0726.html`（`_MMDD` = week-end 的月日）
 
 ```bash
-cd "C:/Users/irisding/us-css-weeklyreport"
+cd "C:/Users/irisding/us-css-weeklyperformance"
 node update_index.js
 git add weekly_report_YYYY-MM-DD_MMDD.html index.html
 git commit -m "Add US CSS weekly performance report YYYY-MM-DD ~ YYYY-MM-DD"
 git push origin main
 ```
 
-Repo: `https://github.com/irisding001/us-css-weeklyreport`
+Repo: `https://github.com/irisding001/us-css-weeklyperformance`
 
 ---
 
 ## Step 6: Share link
 
 ```
-https://irisding001.github.io/us-css-weeklyreport/weekly_report_YYYY-MM-DD_MMDD.html
+https://irisding001.github.io/us-css-weeklyperformance/weekly_report_YYYY-MM-DD_MMDD.html
 ```
 
-History page (always shows 3 most recent):
+History page（主页含 KPI vs 时间进度对比块 + 历史报告列表）：
 ```
-https://irisding001.github.io/us-css-weeklyreport/
+https://irisding001.github.io/us-css-weeklyperformance/
 ```
+
+### 主页 update_index.js 改造（2026-11-09）
+
+`update_index.js` 生成 `index.html` 时自动在顶部注入：
+
+1. **KPI vs 时间进度对比块**：当前月度全队 PC / 800 vs 当月已过天数 / 当月总天数，红绿色标注落后/领先
+2. **KPI 排行榜**：当月个人 PC 降序，标 top3 绿色
+3. **外呼活跃榜**：当月个人外呼 周PC 累计降序，标 top3 绿色
+
+数据来源：自动读取仓库内最新一份周报 HTML 的 Individual Summary 月度总PC 列 + 外呼个人表 周PC 列。
+
+⚠️ 主页改造无需每周手动操作，`update_index.js` 自动生成。
 
 ---
 
 ## Step 7: Push to Feishu group
 
-> ⚠️ **执行前必须向 Iris 确认**：列出将要执行的命令，等待 Iris 明确回复"确认"或"yes"后再执行。
+**目标群：Moomoo US CSS**（`chat_id: oc_57d5074a6079466f543bfad14bdd459b`）
+
+⚠️ **禁止用 lark-cli / lark-im skill 手动发消息**（bot 不在群，会报 230002）。
+⚠️ **禁止发到 "US CSS Team Weekly Report" 群**（错误的群）。
+
+> ⚠️ **执行前必须向 Iris 确认命令**，等待明确回复"确认"或"yes"后再执行。
+
+### 推送命令（唯一正确方式）
 
 ```bash
 node C:/Users/irisding/push_weekly_report.js \
@@ -584,14 +981,64 @@ node C:/Users/irisding/push_weekly_report.js \
   --week-end   YYYY-MM-DD
 ```
 
-Optional custom note (bilingual):
+脚本通过 **webhook**（`weekly performance` bot）发送交互式卡片到 Moomoo US CSS 群：
+
+```
+┌─ US CSS Weekly Report | MM-DD ~ MM-DD ─────────────────┐
+│ 本周报告已更新。                                          │
+│ This week's report is ready.                             │
+│  [查看周报 View Report]  [历史周报 History]               │
+└──────────────────────────────────────────────────────────┘
+```
+
+可选自定义说明（双语）：
 ```bash
 --note "本周报告已更新，含满意度分析。\nThis week's report is ready, including CSAT analysis."
 ```
 
+**技术细节（仅供参考）：**
 - Webhook: `https://open.feishu.cn/open-apis/bot/v2/hook/b26105dd-d92a-45b4-a2fe-9424f712b9b2`
-- Report URL auto-constructed from `--week-start` + `--week-end`
-- Card includes: title, bilingual note, 查看周报 + 历史周报 buttons
+- 脚本自动根据 `--week-start`/`--week-end` 构建报告 URL 和历史页链接
+- Mon-Sun 周期 → webhook；Fri-Thu 周期 → lark-cli `us-ccs` profile（另一个群）
+
+### 发送前：检查历史周报完整性
+
+**发飞书群消息前**，先列出目录中所有历史报告并核查：
+
+```bash
+ls C:/Users/irisding/us-css-weeklyperformance/weekly_report_*.html
+```
+
+| 检查项 | 合格标准 |
+|--------|---------|
+| 外呼表列数 | 9 列 |
+| Channel Team Summary WoW 标签 | 各行含 ▲/▼ |
+| Individual Summary CSAT | 每人满意度无缺失 |
+| index.html | 已包含本周报告链接（运行 `node update_index.js` 后 git push）|
+
+若任意项异常：**停止发送，告知 Iris 具体哪份报告哪项异常**，等待确认后再继续。
+
+### Iris 个人私信预览（可选，群发前预审）
+
+群发前可先用 lark-im skill 发私信给 Iris 预览效果（不是群消息，仅 Iris 个人可见）：
+
+```bash
+lark-cli im +messages-send \
+  --as bot \
+  --user-id ou_7d1c2ad1368fc900420835dd5a8759ca \
+  --markdown "$(cat <<'EOF'
+**本周报告预览** | MM-DD ~ MM-DD
+
+- GitHub: https://irisding001.github.io/us-css-weeklyperformance/weekly_report_YYYY-MM-DD_MMDD.html
+- KPI 进度：XX.X%（时间进度 XX.X%）
+- 外呼进步榜：xxx（PC +N）、xxx（转化率 +N%）
+
+确认无误后回复"发群"，再走 push_weekly_report.js 群推送流程。
+EOF
+)"
+```
+
+⚠️ 私信预览**不是**群推送，仅用于 Iris 本人查看效果；正式群发必须用 `push_weekly_report.js`。
 
 ---
 
@@ -599,7 +1046,7 @@ Optional custom note (bilingual):
 
 - **趋势图周数（2026-08-07 起）：** Section 一趋势图一律显示最近 **6 周**数据，不再显示 4 周。生成 SVG 时需读取当前报告所在周及前 5 周的工单量、CSAT、转化PC 数据（从历史报告文件提取）。
 - `[ERROR] 外呼: USCM_AUTH_EXPIRED` → refresh USCM_COOKIE in run_weekly_config.json
-- This repo (`us-css-weeklyreport`) is separate from the standard `US-CSS-weekly-report` repo
+- This repo (`us-css-weeklyperformance`) is separate from the standard `US-CSS-weekly-report` repo
 - Non-standard date ranges still use `--week-start` as the output filename date
 - WS CSAT (per-agent) requires WS_COOKIE; team CSAT comes from `us-workspace.futuoa.com/unsatisfied-orders`
 
