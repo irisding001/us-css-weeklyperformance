@@ -102,7 +102,7 @@ const DATA_FLOOR = '2026-07-01';  // Business launch date — no data before thi
 
 const TEAM_ORDER = [
   'jacelynlim', 'terrychen', 'muhamadfaisal', 'azamuddin',
-  'jeanliew', 'whitneylee', 'alvinsim', 'zaydentan', 'wilsonwong',
+  'jeanliew', 'whitneylee', 'alvinsim', 'wilsonwong',
 ];
 const CONVERSION_TEAM = new Set(TEAM_ORDER);
 
@@ -110,7 +110,7 @@ const CONVERSION_TEAM = new Set(TEAM_ORDER);
 const WS_TEAM_MAP = {
   jacelynlim:    16510, terrychen:     14581, muhamadfaisal: 14810,
   azamuddin:     15515, jeanliew:      17203,
-  whitneylee:    17204, alvinsim:      16424, zaydentan:     14675,
+  whitneylee:    17204, alvinsim:      16424,
   wilsonwong:    14727,
 };
 const WS_TEAM_SIDS = new Set(Object.values(WS_TEAM_MAP));

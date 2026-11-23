@@ -7,9 +7,9 @@ description: Generate US CSS weekly performance report (Sections 1 & 2 only) for
 
 Sections 1 & 2 only (no Highlights / Next Week Plans). Tables sorted by ticket volume descending. Bilingual performance analysis labels.
 
-**Team (9 agents, from 2026-11-09):** jacelynlim / terrychen / muhamadfaisal / azamuddin / jeanliew / whitneylee / alvinsim / zaydentan / wilsonwong
+**Team (8 agents, from 2026-11-14):** jacelynlim / terrychen / muhamadfaisal / azamuddin / jeanliew / whitneylee / alvinsim / wilsonwong
 
-*(calventan 已于 2026-11 离职，从成员列表移除；vincentyew 早期已移除。run.js / run_weekly_patches.js TEAM 均不含此两人)*
+*(zaydentan 已于 2026-11-14 离职，从成员列表移除；calventan / vincentyew 早期已移除。run.js / run_weekly_patches.js TEAM 均不含此三人)*
 
 **月度 KPI 目标（2026-11 起）：** 团队月度 KPI = **800**（Iris 11月明确指定），原 1200 作废。Individual Summary 表 `月度KPI达成%` 列仍按个人 KPI=100（人均口径，与团队 800 解耦）。
 
@@ -228,10 +228,55 @@ run_weekly_patches.js 完成后，还需运行以下手动注入脚本（顺序�
 | 3 | `inject_fatal_individual.js` | Individual Summary 致命/非致命差错列 |
 | 4 | `inject_eff_follow_red.js` | 外呼个人表 有效跟进 < 50 标红 |
 | 5 | `inject_kpi_time_chips.js` | 概览栏第二行：月时间进度 + KPI 进度 chip |
-| 6 | `inject_summary.js` | 本周业绩小结 + email CSAT 行 + 综合满意度名单 |
+| 6 | `inject_wow_kpi.js` | Channel Team Summary + 转化业务汇总 WoW（必跑，否则 Channel Team Summary 无 WoW） |
+| 7 | `inject_summary.js` | 本周业绩小结 + email CSAT 行 + 综合满意度名单 |
 
 ⚠️ **所有手动注入脚本必须放在 run_weekly_patches.js 之后**，否则 patches 会覆盖手动改动。
 ⚠️ **inject_summary.js 必须最后**，因其锚点依赖前序脚本的最终 HTML 状态。
+
+### inject_wow_kpi.js 已知坑（2026-11-16 修复）
+
+1. **目录硬编码错误**：脚本 `findLastWeekReport()` 原指向 `C:/Users/irisding/us-css-weeklyreport`（旧目录），会误抓到该目录下的过时文件作为上周基准。**已修复为 `us-css-weeklyperformance`**。若再次出现上周基准数据异常，先检查此路径。
+2. **WoW span 重复注入**：`inject_wow_kpi.js`（注入 `<span style="font-size:9px">`）与 `patch_channel_wow.js`（注入 `<span class="sub-lbl">`）都对 Channel Team Summary 4 行注入 WoW，若两个格式都存在会导致同一指标显示两行 WoW。**idempotency regex 已加强**，覆盖 `sub-lbl` 格式 + unicode minus `−` + ascii `-`。重复时清理命令：
+   ```bash
+   node -e "
+   const fs=require('fs');
+   let h=fs.readFileSync('REPORT.html','utf8');
+   h=h.replace(/<span class=\"sub-lbl\" style=\"color:#(?:15803d|ef4444)\">[▲▼][−-]?[^<]*<\/span>/g,'');
+   h=h.replace(/<span style=\"display:block;font-size:9px;color:#(?:16a34a|dc2626);line-height:1\.2;margin-top:1px\">[▲▼][^<]*<\/span>/g,'');
+   fs.writeFileSync('REPORT.html',h);
+   "
+   ```
+   清理后再重跑 `inject_wow_kpi.js`。
+
+### 手动注入脚本自动化重构（2026-11-23）
+
+**已重构脚本（无需每周手动改数据）：**
+
+| 脚本 | 重构内容 |
+|------|---------|
+| `inject_conv_wow.js` | 从命令行参数读 cur/prev 路径，默认自动取目录最新+次新；从 HTML 转化业务表提取 cur/prev 5 个值，不再硬编码 |
+| `build_card.js` | REPORT_PATH 从命令行参数或目录最新文件自动推导；日期范围从文件名提取；Highlights 从 HTML 块自动提取（不再手写） |
+| `inject_kpi_time_chips.js` | chip 标签改为"季度时间进度/季度KPI进度"（原"月时间进度/KPI 进度"已废弃）；口径改季度（Q4=92 天） |
+
+**用法：**
+```bash
+node inject_conv_wow.js [当前周报告路径] [上周报告路径]
+node build_card.js [报告路径]
+node inject_kpi_time_chips.js  # 仍硬编码 REPORT，需每周改路径
+```
+
+**inject_kpi_time_chips.js 仍需每周手动改：**
+- `REPORT` 路径（本周报告）
+- `kpiPct` 值（从 `fetch_kpi_quarterly.js` 输出读取）
+- `weekEndDay`（Q4 累计天数，如 11/22 = 53）
+
+**Highlights 块 HTML 提取锚点（build_card.js）：**
+- 外层 div style 含 `padding:14px 18px;background:#f8faff;border:1.5px solid #1456F0`
+- `display:block` 的 `<span>` 视作换行
+- 若 Highlights HTML 结构变化，extractHighlights 会返回空，需调试 regex
+
+---
 
 ---
 
@@ -479,24 +524,26 @@ check_report.js checks 6 & 7 will WARN if these lines are missing. Inject manual
 - **月度PC** ← Guandata OB card `ndfe729d2affb4323a070459` col[4]（已转化PC）全员求和，filter: [月初, 周末]（`monthlyFetch.totalAlreadyConverted`，不是 Individual Summary 末列求和）
 - **外呼转化PC** ← Guandata OB card col[5] 团队合计（客经侧已转化PC）
 
-### Iris 自定义概览 chip（2026-11-09 更新）
+### Iris 自定义概览 chip（2026-11-14 更新：团队改季度口径）
 
 Iris 在本周概览栏额外要求两个 chip（run_weekly_patches.js 未自动注入，需手动加在"月度PC"chip 后面）：
 
-- **KPI 进度**：`月度PC ÷ 800`（团队月度 KPI=800，9 agents × 人均 100），保留 1 位小数 + `%`，**不带括号**（如 `15.5%`，不显示 `124/800`）
-- **月时间进度**：周末日期 / 当月总天数（如 11/08 → 8/30 = 26.7%），保留 1 位小数 + `%`，不带"（XX/XX 天）"括号
+- **季度KPI进度**：Guandata page `e44cbeaa851f442ac80c5984` card 10 返回的团队 PC达成率（如 `42.7%`），**不带括号**（不显示 842/1972）
+- **季度时间进度**：**汇报截止日（周末）**累计天数 / 季度总天数（Q4=92 天；如 11/08 → 39/92 = 42.4%），保留 1 位小数 + `%`。⚠️ 不是今天，是报告周的周末
 
 注入脚本：`C:/Users/irisding/inject_kpi_time_chips.js`
 
-每月手动更新两个值：
-- `monthlyPC`（Guandata col[4] 全员求和）→ KPI 进度 = `monthlyPC / 800`，保留 1 位小数 + `%`，**不带括号**（如 `15.5%`）
-- `weekEndDay` / `daysInMonth`（如 11/08 → 8/30 = 26.7%）→ 月时间进度 = `weekEndDay / daysInMonth`，保留 1 位小数 + `%`
+每季度/每周手动更新两个值：
+- **季度KPI进度**：从 `fetch_kpi_quarterly.js` 输出读取（`data[0][2].v` × 100，保留 1 位小数）
+- **季度时间进度**：`cumulativeDays / daysInQuarter`（如 11/14 → 44/92 = 47.8%），保留 1 位小数 + `%`
 
 锚点：`<span ...><strong>邮件 CSAT</strong> XX.X%</span>` chip（第一行最后一个），注入到其后面，用 `<span style="flex-basis:100%;height:0"></span>` 强制换行到第二行。
 
 ⚠️ **Flex 容器换行技巧**：概览栏 chips 容器是 `display:flex;flex-wrap:wrap`，`<br>` 不生效。必须用 `<span style="flex-basis:100%;height:0"></span>` 强制换行。
 
-⚠️ 每月需手动改 anchor 里的 `N 单` 数值，以及 chip 内的两个百分比。脚本动态读取月度PC 值（`/<strong>月度PC<\/strong> (\d+) 单/`），但 `weekEndDay` / `daysInMonth` 仍写死在脚本中，需每月更新。
+⚠️ **chip 标签必须写"季度时间进度 / 季度KPI进度"，不要写"月时间进度 / KPI 进度"**（2026-11-14 Iris 明确要求）。
+
+⚠️ **个人月度 KPI 仍在 Individual Summary 表"月度KPI达成%"列展示，不受此 chip 影响**（团队用季度，个人用月度）。
 
 ### 转化业务表 WoW 子标签（2026-10-26 新增，需手动注入）
 
@@ -727,21 +774,32 @@ node C:/Users/irisding/patch_monthly_sat.js \
 
 ---
 
-## Step 4.65: 本周重点 Highlights 块（2026-11-09 新增，必做）
+## Step 4.65: 本周重点 Highlights 块（2026-11-09 新增，2026-11-14 改季度口径，必做）
 
 报告顶部（业绩情况 Section 一 开头，概览栏下方）插入"本周重点 Highlights"块，让 KPI 进度和外呼进步一眼可见。
 
+**口径规则（2026-11-14 起，强制）：**
+- **团队行用季度口径**：季度KPI进度 + 季度时间进度
+- **个人行用月度口径**：月度KPI达成率（Individual Summary 月度KPI% 列）
+- 两者不可混用，团队行不展示个人月度百分比
+
 **结构（两块，按顺序）：**
 
-1. **KPI 进度榜 KPI Progress**（紫色 chip）
-   - 全队月度合计 N 单，KPI 进度 XX.X%，月时间进度 XX.X%，落后/领先 Npp
-   - KPI 领先（达成 ≥ 时间进度）：agent（百分比）
-   - KPI 需追赶（落后时间进度）：agent(%)、agent(%)...
+1. **KPI 进度榜 KPI Progress**（紫色 chip，标题含"季度 Q4"）
+   - 全队 **季度KPI进度 XX.X%**，季度时间进度 XX.X%（截至 MM/DD），落后/领先 Npp
+   - KPI 领先：agent（不展示百分比，个人月度口径）
+   - KPI 需追赶（N 人）：agent、agent、agent...
 
 2. **外呼进步榜 Progress / Regression**（绿色 chip）
-   - **Praise 夸奖**（周PC/跟进量/有效跟进 全面进步）：agent（PC +N）
-   - **Watch 关注**（跟进量/有效跟进 进步但周PC 退步）：agent（PC -N）
-   - **Alert 预警**：jacelynlim（周PC -N，跟进量 -N）、zaydentan（周PC 0，连续两周零转化）
+   - **Praise 夸奖**（有效跟进量 进步）：agent（+N）
+   - **Watch 关注**（有效跟进量 退步）：agent（-N）、agent（-N）
+   - **Alert 预警**：agent（有效跟进 +N 但转化少）/ agent（特殊说明）
+
+**红色加粗突出（2026-11-16 起，强制）：**
+- "落后 Npp" → `<strong style="color:#dc2626">落后 Npp</strong>`
+- "KPI 需追赶" 整行标签 + 名单内容 → `<strong style="color:#dc2626">KPI 需追赶（N 人）</strong>：<strong>agent、agent、agent...</strong>`
+- "关注 Watch" 整行标签 + 名单内容 → `<strong style="color:#b45309">关注 Watch</strong>（...）：<strong>agent（-N）、agent（-N）</strong>`
+- "预警 Alert" 整行标签 + 内容 → `<strong style="color:#dc2626">预警 Alert</strong>：<strong>agent（...）</strong>`
 
 **HTML 模板：**
 ```html
@@ -749,25 +807,28 @@ node C:/Users/irisding/patch_monthly_sat.js \
   <div style="font-weight:700;font-size:14px;margin-bottom:12px;color:#1456F0">本周重点 Highlights</div>
 
   <div style="margin-bottom:12px">
-    <span style="font-size:11px;font-weight:700;background:#ede9fe;color:#7c3aed;padding:2px 8px;border-radius:3px;margin-right:8px">KPI 进度榜 KPI Progress</span><br>
-    <span style="display:block;margin-top:6px">· 全队月度合计 <strong>N 单</strong>，KPI 进度 <strong style="color:#dc2626">XX.X%</strong>，月时间进度 <strong>XX.X%</strong>，落后 Npp / Team monthly N, KPI XX.X%, behind time progress XX.X% by Npp</span>
-    <span style="display:block">· <strong style="color:#15803d">KPI 领先</strong>（达成 ≥ 时间进度 XX.X%）：agent（XX%）/ Above time progress</span>
-    <span style="display:block">· <strong style="color:#dc2626">KPI 需追赶</strong>（N 人落后时间进度）：agent(XX%)、agent(XX%)... / Behind time progress</span>
+    <span style="font-size:11px;font-weight:700;background:#ede9fe;color:#7c3aed;padding:2px 8px;border-radius:3px;margin-right:8px">KPI 进度榜 KPI Progress（季度 Q4）</span><br>
+    <span style="display:block;margin-top:6px">· 全队 <strong>季度KPI进度 <span style="color:#dc2626">XX.X%</span></strong>，季度时间进度 <strong>XX.X%</strong>（截至 MM/DD），<strong style="color:#dc2626">落后 Npp</strong> / Team quarterly KPI XX.X%, behind time progress XX.X% by Npp</span>
+    <span style="display:block">· <strong style="color:#15803d">KPI 领先</strong>：agent / Above time progress</span>
+    <span style="display:block">· <strong style="color:#dc2626">KPI 需追赶（N 人）</strong>：<strong>agent、agent、agent...</strong> / Behind time progress</span>
   </div>
 
   <div>
     <span style="font-size:11px;font-weight:700;background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:3px;margin-right:8px">外呼进步榜 Progress / Regression</span><br>
-    <span style="display:block;margin-top:6px">· <strong style="color:#15803d">夸奖 Praise</strong>（周PC/跟进量/有效跟进 全面进步）：agent（PC +N）、agent（PC +N）/ agents — all three metrics improved</span>
-    <span style="display:block">· <strong style="color:#b45309">关注 Watch</strong>（跟进量/有效跟进 进步但周PC 退步）：agent（PC -N）、agent（PC -N）— 跟进量上升但转化未跟上，注意转化效率 / improved follow-up volume but conversion lagged</span>
-    <span style="display:block">· <strong style="color:#dc2626">预警 Alert</strong>：agent（周PC -N，跟进量 -N）、agent（周PC 0，连续两周零转化，本周仅 N 通跟进）/ agent: PC -N, follow-up -N; agent: 0 PC two weeks in a row, only N follow-ups</span>
+    <span style="display:block;margin-top:6px">· <strong style="color:#15803d">夸奖 Praise</strong>（有效跟进量 进步）：agent（+N）、agent（+N）/ agents — effective follow-up improved</span>
+    <span style="display:block">· <strong style="color:#b45309">关注 Watch</strong>（有效跟进量 退步）：<strong>agent（-N）、agent（-N）</strong>— 跟进量明显下滑，需关注 / effective follow-up declined significantly</span>
+    <span style="display:block">· <strong style="color:#dc2626">预警 Alert</strong>：<strong>agent（...）</strong>/ agent: ...</span>
   </div>
 </div>
 ```
 
 **数据来源：**
-- KPI 进度 = `monthlyPC / 800`（团队月度 KPI=800）
-- 月时间进度 = `weekEndDay / daysInMonth`
-- WoW 对比：从上周报告（`weekly_report_PREV-MM-DD_MMDD.html`）外呼个人表抓 follow/eff/PC 三列
+- **季度KPI进度** = Guandata page `e44cbeaa851f442ac80c5984` card 10 `xf5c0a2b883c4467185b5079`（KPI达成情况），filter: 地区=US, 是否转化客服=是, 分区日期=Q4 范围；返回团队 PC达成率
+- **季度时间进度** = **汇报截止日（周末）**至季度起始的天数 / 季度总天数（Q4 = 92 天；如 11/08 → 39/92 = 42.4%）。⚠️ 不是今天，是报告周的周末
+- **个人 KPI**（月度）= Individual Summary 月度KPI% 列，用于"KPI 领先/追赶"名单筛选
+- **外呼进步榜 WoW 对比**：从上周报告（`weekly_report_PREV-MM-DD_MMDD.html`）外呼个人表抓**有效跟进量**（第5列，col[4]）做 WoW 对比，按差值排序分类。**口径是有效跟进量，不是周PC**（2026-11-16 Iris 明确要求）
+
+**fetch 脚本：** `C:/Users/irisding/fetch_kpi_quarterly.js`（团队汇总）
 
 **排序规则（强制）：**
 - Individual Summary 表：按 **周度总PC 倒序**
@@ -976,22 +1037,52 @@ https://irisding001.github.io/us-css-weeklyperformance/
 ### 推送命令（唯一正确方式）
 
 ```bash
+# 1. 先生成卡片 JSON（含 Highlights 块，与私信预览一致）
+node C:/Users/irisding/build_card.js
+
+# 2. 再推送到群（自动读取 card_preview.json）
 node C:/Users/irisding/push_weekly_report.js \
   --week-start YYYY-MM-DD \
   --week-end   YYYY-MM-DD
 ```
 
-脚本通过 **webhook**（`weekly performance` bot）发送交互式卡片到 Moomoo US CSS 群：
+**卡片内容（2026-11-16 起，与私信预览完全一致）：**
 
 ```
 ┌─ US CSS Weekly Report | MM-DD ~ MM-DD ─────────────────┐
-│ 本周报告已更新。                                          │
-│ This week's report is ready.                             │
-│  [查看周报 View Report]  [历史周报 History]               │
+│                                                          │
+│ 本周重点 Highlights                                       │
+│                                                          │
+│ 🟣 KPI 进度榜 KPI Progress（季度 Q4）                     │
+│ · 全队 季度KPI进度 XX.X%，季度时间进度 XX.X%（截至 MM/DD），│
+│   落后/领先 Npp                                           │
+│ · 🟢 KPI 领先：agent                                      │
+│ · 🔴 KPI 需追赶（N 人）：agent、agent、agent...           │
+│                                                          │
+│ 🟢 外呼进步榜 Progress / Regression                       │
+│ · 🟢 夸奖 Praise（有效跟进量 进步）：agent（+N）           │
+│ · 🟠 关注 Watch（有效跟进量 退步）：agent（-N）            │
+│ · 🔴 预警 Alert：agent（...）                             │
+│ ─────────────────────────────────────────────             │
+│ 概览 Overview                                             │
+│ 周咨询PC: N ｜ 外呼转化PC: N ｜ 月度PC: N（KPI 800）      │
+│ ─────────────────────────────────────────────             │
+│ 渠道汇总 Channel Team Summary                             │
+│ | 渠道 | 工单 | 咨询PC | 满意度 |                          │
+│ ─────────────────────────────────────────────             │
+│ 个人业绩 Individual Summary                               │
+│ | 客服 | 咨询PC | 转化PC | 周总PC | 周CSAT | 月总PC | 月KPI │
+│ ─────────────────────────────────────────────             │
+│ [查看完整周报 View Full Report]  [历史周报 History]        │
 └──────────────────────────────────────────────────────────┘
 ```
 
-可选自定义说明（双语）：
+**关键规则（2026-11-16 起，强制）：**
+- **群推送卡片必须与私信预览一致**：都用 `build_card.js` 生成的 `card_preview.json`，确保 Highlights 块、季度KPI口径、有效跟进量外呼进步榜、名单加粗等完全相同
+- **推送前必须先跑 `build_card.js`**：生成最新 `card_preview.json`，否则 `push_weekly_report.js` 会用旧 JSON 或回退到无 Highlights 的内置模板
+- `push_weekly_report.js` 已改为优先读 `C:/Users/irisding/card_preview.json`；文件不存在时才回退到内置模板（无 Highlights，**不允许出现这种情况**）
+
+可选自定义说明（双语，仅回退内置模板时生效）：
 ```bash
 --note "本周报告已更新，含满意度分析。\nThis week's report is ready, including CSAT analysis."
 ```
@@ -1000,6 +1091,7 @@ node C:/Users/irisding/push_weekly_report.js \
 - Webhook: `https://open.feishu.cn/open-apis/bot/v2/hook/b26105dd-d92a-45b4-a2fe-9424f712b9b2`
 - 脚本自动根据 `--week-start`/`--week-end` 构建报告 URL 和历史页链接
 - Mon-Sun 周期 → webhook；Fri-Thu 周期 → lark-cli `us-ccs` profile（另一个群）
+- ⚠️ webhook 发送的卡片**无法用 API 撤回**（不返回 message_id，bot 无 `im:message.group_msg` scope）。发错只能 Iris 手动在飞书客户端撤回。**务必先私信预览确认后再群发**。
 
 ### 发送前：检查历史周报完整性
 
@@ -1020,25 +1112,36 @@ ls C:/Users/irisding/us-css-weeklyperformance/weekly_report_*.html
 
 ### Iris 个人私信预览（可选，群发前预审）
 
-群发前可先用 lark-im skill 发私信给 Iris 预览效果（不是群消息，仅 Iris 个人可见）：
+群发前可先用 lark-im skill 发**交互式卡片**给 Iris 预览效果（不是群消息，仅 Iris 个人可见）。
+
+**关键配置（2026-11-14 更新）：**
+- **profile**：`iris-weekly`（appId `cli_aa9ebc6861e55bc1`）
+- **Iris open_id**：`ou_65c43706b75eeb31b763b24bd6b39d31`（**iris-weekly profile 下的 open_id，不是 CLAUDE.md 里那个**）
+- ⚠️ CLAUDE.md 里的 `ou_7d1c2ad1368fc900420835dd5a8759ca` 属于**另一个 app**，跨 app 用会报 `code 99992361 "HTTP 400: open_id cross app"`
+
+**构建卡片 JSON：** `C:/Users/irisding/build_card.js`
+- 从 HTML 报告提取 Highlights / 概览 / Channel Team Summary / Individual Summary / Outbound Individual 表
+- Highlights 第一行用**季度口径**（季度KPI进度 + 季度时间进度 + 落后 Npp，红色加粗）
+- 输出 `C:/Users/irisding/card_preview.json`
+
+**发送命令（Windows PowerShell 静默 exit 1 的 workaround）：**
 
 ```bash
-lark-cli im +messages-send \
+node "C:/Users/irisding/AppData/Roaming/npm/node_modules/@futu/ft-lark-cli/scripts/run.js" \
+  im +messages-send \
+  --profile iris-weekly \
   --as bot \
-  --user-id ou_7d1c2ad1368fc900420835dd5a8759ca \
-  --markdown "$(cat <<'EOF'
-**本周报告预览** | MM-DD ~ MM-DD
-
-- GitHub: https://irisding001.github.io/us-css-weeklyperformance/weekly_report_YYYY-MM-DD_MMDD.html
-- KPI 进度：XX.X%（时间进度 XX.X%）
-- 外呼进步榜：xxx（PC +N）、xxx（转化率 +N%）
-
-确认无误后回复"发群"，再走 push_weekly_report.js 群推送流程。
-EOF
-)"
+  --user-id ou_65c43706b75eeb31b763b24bd6b39d31 \
+  --msg-type interactive \
+  --content "$(cat C:/Users/irisding/card_preview.json)" \
+  > /tmp/lark_out.txt 2>&1; cat /tmp/lark_out.txt
 ```
 
+⚠️ **Windows 终端吞 stdout**：lark-cli 在 PowerShell/git-bash 直接跑可能静默 exit 1，必须重定向到文件再 cat。
+
 ⚠️ 私信预览**不是**群推送，仅用于 Iris 本人查看效果；正式群发必须用 `push_weekly_report.js`。
+
+⚠️ Iris 确认卡片后，再走 `push_weekly_report.js` 群推送流程（但注意：群推送当前是简单 webhook 卡片，不含 Highlights 块；如需群发完整 Highlights 卡片，需额外开发）。
 
 ---
 
